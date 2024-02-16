@@ -7,6 +7,8 @@ use hyper::{
 };
 use hyper_proxy::{Intercept, Proxy, ProxyConnector};
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
+use locust_core::crud::proxies::{get_general_proxy, get_proxy_by_domain};
+use sqlx::PgPool;
 use std::{convert::Infallible, future::Future, sync::Arc};
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite},
@@ -31,15 +33,15 @@ fn spawn_with_trace<T: Send + Sync + 'static>(
 }
 
 pub struct Service<CA> {
-    client: Client<ProxyConnector<HttpsConnector<HttpConnector>>>,
     ca: Arc<CA>,
+    db: Arc<PgPool>,
 }
 
 impl<CA> Clone for Service<CA> {
     fn clone(&self) -> Self {
         Self {
-            client: self.client.clone(),
             ca: Arc::clone(&self.ca),
+            db: Arc::clone(&self.db),
         }
     }
 }
@@ -48,11 +50,8 @@ impl<CA> Service<CA>
 where
     CA: CertificateAuthority,
 {
-    pub fn new(ca: Arc<CA>) -> Self {
-        Self {
-            client: build_client(),
-            ca,
-        }
+    pub fn new(ca: Arc<CA>, db: Arc<PgPool>) -> Self {
+        Self { ca, db }
     }
 
     pub async fn proxy(self, req: Request<Body>) -> Result<Response<Body>, Infallible> {
@@ -62,8 +61,8 @@ where
         } else if hyper_tungstenite::is_upgrade_request(&req) {
             unimplemented!()
         } else {
-            let res = self
-                .client
+            let client = build_client(&self.db, req.uri()).await;
+            let res = client
                 .request(normalize_request(req))
                 .await
                 .expect("Error with request");
@@ -92,11 +91,6 @@ where
                                 bytes::Bytes::copy_from_slice(buffer[..bytes_read].as_ref()),
                             );
 
-                            // if self
-                            //     .http_handler
-                            //     .should_intercept(&self.context(), &req)
-                            //     .await
-                            // {
                             if buffer == *b"GET " {
                                 if let Err(e) =
                                     self.serve_stream(upgraded, Scheme::HTTP, authority).await
@@ -137,7 +131,6 @@ where
                                     &buffer[..bytes_read]
                                 );
                             }
-                            // }
 
                             let mut server = match TcpStream::connect(authority.as_ref()).await {
                                 Ok(server) => server,
@@ -198,7 +191,15 @@ where
     }
 }
 
-fn build_client() -> Client<ProxyConnector<HttpsConnector<HttpConnector>>> {
+async fn build_client(
+    db: &PgPool,
+    uri: &Uri,
+) -> Client<ProxyConnector<HttpsConnector<HttpConnector>>> {
+    let upstream_proxy = match uri.host() {
+        Some(host) => get_proxy_by_domain(db, host).await,
+        None => get_general_proxy(db).await,
+    }
+    .expect("Error getting proxy for client");
     let https = HttpsConnectorBuilder::new()
         .with_webpki_roots()
         .https_or_http()
@@ -207,10 +208,17 @@ fn build_client() -> Client<ProxyConnector<HttpsConnector<HttpConnector>>> {
 
     let mut proxy = Proxy::new(
         Intercept::All,
-        "http://104.233.12.239:6790".parse().unwrap(),
+        format!(
+            "{}://{}:{}",
+            upstream_proxy.protocol, upstream_proxy.host, upstream_proxy.port
+        )
+        .parse()
+        .unwrap(),
     );
-    let auth = headers::Authorization::basic("dopdpbyv", "r0a4ijhhx9ng");
-    proxy.set_authorization(auth);
+    if let (Some(usr), Some(pwd)) = (upstream_proxy.username, upstream_proxy.password) {
+        let auth = headers::Authorization::basic(&usr, &pwd);
+        proxy.set_authorization(auth);
+    }
     let connector = ProxyConnector::from_proxy(https, proxy).unwrap();
 
     Client::builder()

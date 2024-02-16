@@ -1,10 +1,11 @@
+workspace = { members = ["locust-cli", "locust-core"] }
+
 [package]
 name = "locust"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 async-compression = { version = "0.4.0", features = [
   "tokio",
@@ -30,6 +31,7 @@ hyper-rustls = { version = "0.24.0", default-features = false, features = [
   "webpki-tokio",
 ] }
 hyper-tls = { version = "0.5.0" }
+locust-core = { path = "./locust-core/" }
 hyper-tungstenite = "0.11.1"
 moka = { version = "0.12.0", features = ["future"] }
 openssl = { version = "0.10.39" }
@@ -47,3 +49,5 @@ tokio-util = { version = "0.7.0", features = ["io"] }
 tracing = { version = "0.1.23", features = ["log"] }
 rustls-pemfile = "2.0.0"
 tracing-subscriber = "0.3.0"
+tabled = "0.15.0"
+sqlx = { version = "0.7", features = ["runtime-tokio", "postgres"] }
