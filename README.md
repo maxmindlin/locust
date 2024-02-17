@@ -22,7 +22,8 @@ The proxy server currently runs as a dockerfile. A compose file is provided as w
 
 ### Proxy server
 
-1. `docker-compose up --build`
-2. `cargo run`
+1. `export $(cat .env)`
+2. `docker-compose up --build`
+3. `cargo run`
 
 TODO: include proxy server in the compose file.
