@@ -9,7 +9,7 @@ use crate::{
 
 use std::fs;
 
-use farm::gcp::{create::create_vms, delete::delete_vms};
+use farm::gcp::{config::config_firewall, create::create_vms, delete::delete_vms};
 use locust_core::{
     crud::proxies::{add_proxies, delete_proxies_by_tags, get_proxies_by_tags},
     new_pool,
@@ -65,6 +65,7 @@ enum ConfigureCommand {
         #[command(subcommand)]
         command: ConfigureDomainCmd,
     },
+    Firewall {},
 }
 
 #[derive(Debug, Clone, Subcommand)]
@@ -125,6 +126,9 @@ async fn main() {
                     println!("{} {:?}, {}", host, tags, remove);
                 }
             },
+            ConfigureCommand::Firewall {} => {
+                config_firewall();
+            }
         },
         Command::Import { file, provider } => {
             let content = fs::read_to_string(file).expect("error reading import file");
