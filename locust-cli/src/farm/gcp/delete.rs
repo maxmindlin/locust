@@ -3,6 +3,7 @@ use std::{process, thread};
 use crate::farm::ExistingVM;
 
 pub async fn delete_vms(zone: String) {
+    println!("GETTING EXISTING VM LIST...");
     let output = process::Command::new("gcloud")
         .arg("compute")
         .arg("instances")

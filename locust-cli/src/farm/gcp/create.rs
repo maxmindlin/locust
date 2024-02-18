@@ -1,4 +1,8 @@
-use std::process;
+use std::{
+    process,
+    sync::{Arc, Mutex},
+    thread,
+};
 
 use locust_core::models::proxies::NewProxy;
 use uuid::Uuid;
@@ -16,21 +20,26 @@ pub async fn create_vms(
 ) -> Vec<NewProxy> {
     let id = Uuid::new_v4();
 
-    let mut proxies = Vec::new();
-    for i in 0..num {
-        let output = process::Command::new("gcloud")
-            .arg("compute")
-            .arg("instances")
-            .arg("create")
-            .arg(format!("squid-{}-{}", id, i))
-            .arg("--format=csv(name,zone,status,networkInterfaces[0].accessConfigs[0].natIP:label=external_ip)")
-            .arg(format!("--project={project}"))
-            .arg(format!("--zone={zone}"))
-            .arg("--machine-type=e2-micro")
-            .arg("--image-family=debian-12")
-            .arg("--image-project=debian-cloud")
-            .arg("--tags=squid-proxy-locust")
-            .arg(format!(r#"--metadata=startup-script=#! /bin/bash
+    let proxies: Arc<Mutex<Vec<NewProxy>>> = Arc::new(Mutex::new(Vec::new()));
+    thread::scope(|s| {
+        for i in 0..num {
+            let proxies_a = Arc::clone(&proxies);
+            s.spawn(move || {
+                let vm_id = format!("squid-{}-{}", id, i);
+                println!("CREATING {}", vm_id);
+                let output = process::Command::new("gcloud")
+                    .arg("compute")
+                    .arg("instances")
+                    .arg("create")
+                    .arg(vm_id)
+                    .arg("--format=csv(name,zone,status,networkInterfaces[0].accessConfigs[0].natIP:label=external_ip)")
+                    .arg(format!("--project={project}"))
+                    .arg(format!("--zone={zone}"))
+                    .arg("--machine-type=e2-micro")
+                    .arg("--image-family=debian-12")
+                    .arg("--image-project=debian-cloud")
+                    .arg("--tags=squid-proxy-locust")
+                    .arg(format!(r#"--metadata=startup-script=#! /bin/bash
 sudo apt-get update
 sudo apt-get install -y squid apache2-utils
 cat <<'EOF' > /etc/squid/squid.conf
@@ -78,23 +87,60 @@ EOF
 echo "{username}:$(openssl passwd -apr1 {pwd})" | sudo tee /etc/squid/passwd > /dev/null
 sudo systemctl restart squid
             "#))
-        .output()
-        .expect("failed to execute farm script");
+                    .output()
+                    .expect("failed to execute farm script");
 
-        let mut rdr = csv::Reader::from_reader(output.stdout.as_slice());
-        for record in rdr.deserialize() {
-            let record: CreatedVM = record.unwrap();
-            let p = NewProxy {
-                protocol: "http".into(),
-                host: record.external_ip.clone(),
-                port: DEFAULT_SQUID_PORT as i16,
-                username: Some(username.to_string()),
-                password: Some(pwd.to_string()),
-                provider: "squid".into(),
-            };
-            proxies.push(p);
+                let mut rdr = csv::Reader::from_reader(output.stdout.as_slice());
+                for record in rdr.deserialize() {
+                    let record: CreatedVM = record.unwrap();
+                    let p = NewProxy {
+                        protocol: "http".into(),
+                        host: record.external_ip.clone(),
+                        port: DEFAULT_SQUID_PORT as i16,
+                        username: Some(username.to_string()),
+                        password: Some(pwd.to_string()),
+                        provider: "squid".into(),
+                    };
+                    proxies_a.lock().unwrap().push(p);
+                }
+
+            });
+
+            // let mut handles = Vec::new();
+            // let mut rdr = csv::Reader::from_reader(output.stdout.as_slice());
+            // let proxies: Vec<NewProxy> = rdr
+            //     .deserialize()
+            //     .par_bridge()
+            //     .into_par_iter()
+            //     .map(|r| {
+            //         let record: CreatedVM = r.unwrap();
+
+            //         NewProxy {
+            //             protocol: "http".into(),
+            //             host: record.external_ip.clone(),
+            //             port: DEFAULT_SQUID_PORT as i16,
+            //             username: Some(username.to_string()),
+            //             password: Some(pwd.to_string()),
+            //             provider: "squid".into(),
+            //         }
+            //     })
+            //     .collect();
+
+            // proxies
+            // for record in rdr.deserialize() {
+            //     let record: CreatedVM = record.unwrap();
+            //     let p = NewProxy {
+            //         protocol: "http".into(),
+            //         host: record.external_ip.clone(),
+            //         port: DEFAULT_SQUID_PORT as i16,
+            //         username: Some(username.to_string()),
+            //         password: Some(pwd.to_string()),
+            //         provider: "squid".into(),
+            //     };
+            //     // proxies.push(p);
+            // }
         }
-    }
+    });
 
-    proxies
+    Arc::try_unwrap(proxies).unwrap().into_inner().unwrap()
 }
