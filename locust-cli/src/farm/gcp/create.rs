@@ -105,40 +105,6 @@ sudo systemctl restart squid
                 }
 
             });
-
-            // let mut handles = Vec::new();
-            // let mut rdr = csv::Reader::from_reader(output.stdout.as_slice());
-            // let proxies: Vec<NewProxy> = rdr
-            //     .deserialize()
-            //     .par_bridge()
-            //     .into_par_iter()
-            //     .map(|r| {
-            //         let record: CreatedVM = r.unwrap();
-
-            //         NewProxy {
-            //             protocol: "http".into(),
-            //             host: record.external_ip.clone(),
-            //             port: DEFAULT_SQUID_PORT as i16,
-            //             username: Some(username.to_string()),
-            //             password: Some(pwd.to_string()),
-            //             provider: "squid".into(),
-            //         }
-            //     })
-            //     .collect();
-
-            // proxies
-            // for record in rdr.deserialize() {
-            //     let record: CreatedVM = record.unwrap();
-            //     let p = NewProxy {
-            //         protocol: "http".into(),
-            //         host: record.external_ip.clone(),
-            //         port: DEFAULT_SQUID_PORT as i16,
-            //         username: Some(username.to_string()),
-            //         password: Some(pwd.to_string()),
-            //         provider: "squid".into(),
-            //     };
-            //     // proxies.push(p);
-            // }
         }
     });
 
