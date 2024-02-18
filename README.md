@@ -1,10 +1,8 @@
 <h1 align="center">
 <img src="https://raw.githubusercontent.com/maxmindlin/locust/main/assets/logo.png" width="200">
-</h1>
+</h1><br>
 
 ![License](https://img.shields.io/github/license/maxmindlin/locust)
-
-<br>
 
 # Locust
 
