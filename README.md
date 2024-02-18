@@ -1,3 +1,9 @@
+<h1 align="center">
+<img src="https://raw.githubusercontent.com/maxmindlin/locust/main/assets/logo.png" width="300">
+</h1><br>
+
+[![License](https://img.shields.io/github/license/maxmindlin/locust)]
+
 # Locust
 
 Locust is a MITM proxy that routes traffic to various upstream proxies. Locust comes with a CLI that facilitates proxy configuration, importing, querying, and creating custom Squid proxies that are automatically used by the proxy server.
