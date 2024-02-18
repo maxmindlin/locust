@@ -31,16 +31,7 @@ pub async fn get_proxy_by_domain(pool: &PgPool, domain: &str) -> Result<Proxy, E
         None => return get_general_proxy(pool).await,
     };
 
-    sqlx::query(
-        r#"
-            UPDATE proxies
-            SET date_last_used = now()
-            WHERE id = $1
-        "#,
-    )
-    .bind(proxy.id)
-    .execute(pool)
-    .await?;
+    update_proxy_last_used(pool, proxy.id).await?;
 
     Ok(proxy)
 }
@@ -62,6 +53,12 @@ pub async fn get_general_proxy(pool: &PgPool) -> Result<Proxy, Error> {
     .fetch_one(pool)
     .await?;
 
+    update_proxy_last_used(pool, proxy.id).await?;
+
+    Ok(proxy)
+}
+
+async fn update_proxy_last_used(pool: &PgPool, id: i32) -> Result<(), Error> {
     sqlx::query(
         r#"
             UPDATE proxies
@@ -69,11 +66,11 @@ pub async fn get_general_proxy(pool: &PgPool) -> Result<Proxy, Error> {
             WHERE id = $1
         "#,
     )
-    .bind(proxy.id)
+    .bind(id)
     .execute(pool)
     .await?;
 
-    Ok(proxy)
+    Ok(())
 }
 
 pub async fn get_proxies_by_tags(pool: &PgPool, tags: &[String]) -> Result<Vec<Proxy>, Error> {

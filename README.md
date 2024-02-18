@@ -7,6 +7,16 @@
 
 Locust is a MITM proxy that routes traffic to various upstream proxies. Locust comes with a CLI that facilitates proxy configuration, importing, querying, and creating custom Squid proxies that are automatically used by the proxy server.
 
+## Features
+
+- Proxy server that smartly routes traffic to an appropriate upstream proxy.
+  - Easily configurable via a tagging system.
+- CLI that makes managing proxies easy.
+  - File importing that works out of the box with known proxy providers.
+  - Squid proxy farm commands that allow for the creation, deletion, and cycling of squid VMs that are automatically picked up and used by the server (currently only works with GCP).
+  - Configuration commands that make sure your proxies work out of the box.
+  - Querying via tags that gives visibility into proxies without having to execute SQL.
+
 ## Requirements
 
 ### CLI
