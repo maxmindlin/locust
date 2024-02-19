@@ -4,6 +4,7 @@
 <a href="https://github.com/maxmindlin/locust/releases/latest" target="blank">
   <img alt="GitHub Release" src="https://img.shields.io/github/v/release/maxmindlin/locust?style=for-the-badge">
 </a>
+<img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/maxmindlin/locust/test.yml?style=for-the-badge&label=CI">
 </h1>
 
 # Locust
