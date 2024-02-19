@@ -1,7 +1,9 @@
 <h1 align="center">
 <img src="https://raw.githubusercontent.com/maxmindlin/locust/main/assets/logo.png" width="200"><br>
 <img alt="GitHub License" src="https://img.shields.io/github/license/maxmindlin/locust?style=for-the-badge">
-<img alt="GitHub Release" src="https://img.shields.io/github/v/release/maxmindlin/locust?style=for-the-badge">
+<a href="https://github.com/maxmindlin/locust/releases/latest" target="blank">
+  <img alt="GitHub Release" src="https://img.shields.io/github/v/release/maxmindlin/locust?style=for-the-badge">
+</a>
 </h1>
 
 # Locust
