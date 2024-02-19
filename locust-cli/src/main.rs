@@ -16,6 +16,7 @@ use locust_core::{
 };
 
 use clap::{Parser, Subcommand, ValueEnum};
+use providers::infatica::InfaticaParser;
 
 #[derive(Debug, Parser)]
 #[command(arg_required_else_help = true)]
@@ -113,6 +114,7 @@ enum FarmCommand {
 #[derive(Debug, Clone, ValueEnum)]
 enum ProxyProvider {
     Webshare,
+    Infatica,
 }
 
 #[tokio::main]
@@ -139,6 +141,17 @@ async fn main() {
                     let n_proxies = proxies.len();
 
                     let tags = vec!["webshare"];
+                    add_proxies(&db_pool, &proxies, &tags)
+                        .await
+                        .expect("error adding proxies");
+                    println!("Successfully added {} proxies!", n_proxies);
+                }
+                ProxyProvider::Infatica => {
+                    let parser = InfaticaParser {};
+                    let proxies = parser.parse_file(&content);
+                    let n_proxies = proxies.len();
+
+                    let tags = vec!["infatica"];
                     add_proxies(&db_pool, &proxies, &tags)
                         .await
                         .expect("error adding proxies");
