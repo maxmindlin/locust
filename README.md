@@ -11,6 +11,10 @@
 
 Locust is a MITM proxy that routes traffic to various upstream proxies. Locust comes with a CLI that facilitates proxy configuration, importing, querying, and creating custom Squid proxies that are automatically used by the proxy server.
 
+## Installation
+
+See [releases](https://github.com/maxmindlin/locust/releases/latest) for binaries and installation instructions.
+
 ## Features
 
 - Proxy server that smartly routes traffic to an appropriate upstream proxy.
