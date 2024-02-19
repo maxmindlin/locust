@@ -22,4 +22,5 @@ jobs:
       - name: Compile and release
         uses: actions-rs/cargo@v1
         with:
-          command: build --all
+          command: build
+          args: --release --all
