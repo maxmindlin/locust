@@ -1,6 +1,6 @@
 use sqlx::FromRow;
 
-#[derive(Debug, Clone, FromRow)]
+#[derive(Debug, Clone, FromRow, PartialEq, Eq)]
 pub struct Proxy {
     pub id: i32,
     pub protocol: String,
@@ -11,7 +11,7 @@ pub struct Proxy {
     pub provider: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewProxy {
     pub protocol: String,
     pub host: String,
