@@ -42,10 +42,6 @@ pub async fn get_general_proxy(pool: &PgPool) -> Result<Proxy, Error> {
             SELECT
                 p.id, p.protocol, p.host, p.port, p.username, p.password, p.provider
             FROM proxies as p
-            JOIN proxy_tag_map as ptm ON p.id = ptm.proxy_id
-            JOIN tags as t ON ptm.tag_id = t.id
-            JOIN domain_tag_map as dtm ON t.id = dtm.tag_id
-            JOIN domains as d ON d.id = dtm.domain_id
             WHERE p.date_deleted IS NULL
             ORDER BY p.date_last_used
         "#,
