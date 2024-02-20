@@ -9,13 +9,13 @@ pub async fn new_pool() -> Result<PgPool, Error> {
     let user = env::var("POSTGRES_USER").unwrap();
     let pwd = env::var("POSTGRES_PASSWORD").unwrap_or("password".into());
     let db = env::var("POSTGRES_DB").unwrap_or("postgres".into());
-    // let host = env::var("POSTGRES_HOST").unwrap_or("localhost".into());
-    let host = "localhost";
+    let host = env::var("POSTGRES_HOST").unwrap_or("localhost".into());
     let port = env::var("POSTGRES_PORT")
         .unwrap_or("5432".into())
         .parse::<usize>()
         .expect("Invalid psql port");
     let conn_string = format!("postgresql://{}:{}@{}:{}/{}", user, pwd, host, port, db);
+    println!("{}", conn_string);
 
     let pool = PgPoolOptions::new().connect(&conn_string).await?;
 

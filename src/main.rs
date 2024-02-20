@@ -57,8 +57,8 @@ impl ServiceWrapper {
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    let mut private_key_bytes: &[u8] = include_bytes!("ca/hudsucker.key");
-    let mut ca_cert_bytes: &[u8] = include_bytes!("ca/hudsucker.cer");
+    let mut private_key_bytes: &[u8] = include_bytes!("ca/locust.key");
+    let mut ca_cert_bytes: &[u8] = include_bytes!("ca/locust.cer");
     let private_key = tokio_rustls::rustls::PrivateKey(
         pemfile::pkcs8_private_keys(&mut private_key_bytes)
             .next()
@@ -84,6 +84,7 @@ async fn main() {
         db: Arc::new(db_pool),
     };
 
+    println!("Starting up proxy server!");
     if let Err(e) = wrapper.start(shutdown_signal()).await {
         error!("{}", e);
     }

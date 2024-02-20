@@ -1,5 +1,19 @@
 services:
+  locust:
+    networks:
+      - locust-net
+    image: locust:latest
+    container_name: locust
+    build:
+      context: .
+    env_file: .env
+    depends_on:
+      - postgres-locust
+      - flyway-locust
+
   postgres-locust:
+    networks:
+      - locust-net
     container_name: postgres-locust
     image: postgres:15-alpine
     environment:
@@ -17,6 +31,8 @@ services:
       - postgres-locust:/var/lib/postgresql/data/
 
   flyway-locust:
+    networks:
+      - locust-net
     container_name: flyway-locust
     environment:
       FLYWAY_USER: ${POSTGRES_USER}
@@ -29,6 +45,10 @@ services:
       - ./migrations:/flyway/sql
     depends_on:
       - postgres-locust
+
+networks:
+  locust-net:
+    external: false
 
 volumes:
   postgres-locust:
