@@ -4,7 +4,7 @@
 <a href="https://github.com/maxmindlin/locust/releases/latest" target="blank">
   <img alt="GitHub Release" src="https://img.shields.io/github/v/release/maxmindlin/locust?style=for-the-badge">
 </a>
-<img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/maxmindlin/locust/test.yml?style=for-the-badge&label=CI">
+<img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/maxmindlin/locust/ci.yml?style=for-the-badge&label=CI">
 </h1>
 
 # Locust
@@ -37,16 +37,16 @@ See [releases](https://github.com/maxmindlin/locust/releases/latest) for binarie
 
 The proxy server currently runs as a dockerfile. A compose file is provided as well for easy spinup. Without the compose you will need ENV vars set with the proper PostgreSQL connection parameters. See `.env` file for the default settings.
 
-## Running
+## Usage
 
 ### CLI
 
-- `cargo run -p locust-cli -h`
+- `locust-cli -h`
 
 ### Proxy server
 
-1. `export $(cat .env)`
-2. `docker-compose up --build`
-3. `cargo run`
+Docker compose:
 
-TODO: include proxy server in the compose file.
+- `docker-compose up --build`
+
+Docker image can be ran without compose, but you must ensure that it is provided with ENV vars for PSQL connection parameters.
