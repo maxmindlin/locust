@@ -20,3 +20,10 @@ pub struct NewProxy {
     pub password: Option<String>,
     pub provider: String,
 }
+
+#[derive(Debug, Clone, FromRow, PartialEq, Eq)]
+pub struct ProxyMetric {
+    pub proxy_id: i32,
+    pub status: u16,
+    pub response_time: u32,
+}

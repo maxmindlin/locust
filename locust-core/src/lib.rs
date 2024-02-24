@@ -15,7 +15,6 @@ pub async fn new_pool() -> Result<PgPool, Error> {
         .parse::<usize>()
         .expect("Invalid psql port");
     let conn_string = format!("postgresql://{}:{}@{}:{}/{}", user, pwd, host, port, db);
-    println!("{}", conn_string);
 
     let pool = PgPoolOptions::new().connect(&conn_string).await?;
 

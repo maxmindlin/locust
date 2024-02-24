@@ -2,9 +2,11 @@ mod ca;
 mod error;
 mod rewind;
 mod service;
+mod worker;
 
+use crate::worker::DBWorker;
 use ca::RcgenAuthority;
-use futures::Future;
+use futures::{executor::block_on, Future};
 use hyper::{
     server::conn::AddrStream,
     service::{make_service_fn, service_fn},
@@ -13,8 +15,15 @@ use hyper::{
 use locust_core::new_pool;
 use rustls_pemfile as pemfile;
 use sqlx::PgPool;
-use std::{convert::Infallible, net::SocketAddr, sync::Arc};
+use std::{
+    convert::Infallible,
+    net::SocketAddr,
+    sync::{mpsc, Arc},
+    thread,
+};
+use tokio::runtime::Runtime;
 use tracing::*;
+use worker::DBJob;
 
 async fn shutdown_signal() {
     tokio::signal::ctrl_c()
@@ -25,6 +34,7 @@ async fn shutdown_signal() {
 struct ServiceWrapper {
     ca: Arc<RcgenAuthority>,
     db: Arc<PgPool>,
+    db_job_chan: mpsc::Sender<DBJob>,
 }
 
 impl ServiceWrapper {
@@ -35,9 +45,10 @@ impl ServiceWrapper {
         let make_service = make_service_fn(move |_conn: &AddrStream| {
             let ca = Arc::clone(&self.ca);
             let db = Arc::clone(&self.db);
+            let chan = self.db_job_chan.clone();
             async move {
                 Ok::<_, Infallible>(service_fn(move |req| {
-                    service::Service::new(Arc::clone(&ca), Arc::clone(&db)).proxy(req)
+                    service::Service::new(Arc::clone(&ca), Arc::clone(&db), chan.clone()).proxy(req)
                 }))
             }
         });
@@ -78,10 +89,20 @@ async fn main() {
     let ca_auth = ca::RcgenAuthority::new(private_key, ca_cert, 1_000)
         .expect("Failed to create Certificate Authority");
     let db_pool = new_pool().await.expect("Error creating db pool");
+    let db_pool_arc = Arc::new(db_pool);
+    let (tx, rx) = mpsc::channel();
+
+    // @TODO could probably make a worker pool instead of a single worker.
+    let worker = DBWorker::new(Arc::clone(&db_pool_arc), rx);
+    thread::spawn(move || {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(worker.start());
+    });
 
     let wrapper = ServiceWrapper {
         ca: Arc::new(ca_auth),
-        db: Arc::new(db_pool),
+        db: Arc::clone(&db_pool_arc),
+        db_job_chan: tx,
     };
 
     println!("Starting up proxy server!");

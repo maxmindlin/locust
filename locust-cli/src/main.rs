@@ -172,7 +172,7 @@ async fn main() {
             zone,
         } => match command {
             FarmCommand::Create { num, username, pwd } => {
-                let vms = create_vms(&project, &zone, &username, &pwd, num).await;
+                let vms = create_vms(&project, &zone, &username, &pwd, num);
 
                 let tags = vec!["squid"];
                 add_proxies(&db_pool, &vms, &tags)
@@ -181,7 +181,7 @@ async fn main() {
                 println!("Successfully added {} proxies!", vms.len());
             }
             FarmCommand::Delete { zone } => {
-                delete_vms(zone).await;
+                delete_vms(zone);
                 let tags = vec!["squid".to_string()];
                 delete_proxies_by_tags(&db_pool, &tags)
                     .await
@@ -194,12 +194,12 @@ async fn main() {
                 pwd,
                 zone,
             } => {
-                delete_vms(zone.clone()).await;
+                delete_vms(zone.clone());
                 let tags = vec!["squid".to_string()];
                 delete_proxies_by_tags(&db_pool, &tags)
                     .await
                     .expect("error deleting proxies from db");
-                let vms = create_vms(&project, &zone, &username, &pwd, num).await;
+                let vms = create_vms(&project, &zone, &username, &pwd, num);
 
                 let tags = vec!["squid"];
                 add_proxies(&db_pool, &vms, &tags)

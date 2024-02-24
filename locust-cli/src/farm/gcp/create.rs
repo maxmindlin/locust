@@ -7,17 +7,9 @@ use std::{
 use locust_core::models::proxies::NewProxy;
 use uuid::Uuid;
 
-use crate::farm::CreatedVM;
+use crate::farm::{gcp::DEFAULT_SQUID_PORT, CreatedVM};
 
-const DEFAULT_SQUID_PORT: u16 = 3128;
-
-pub async fn create_vms(
-    project: &str,
-    zone: &str,
-    username: &str,
-    pwd: &str,
-    num: u16,
-) -> Vec<NewProxy> {
+pub fn create_vms(project: &str, zone: &str, username: &str, pwd: &str, num: u16) -> Vec<NewProxy> {
     let id = Uuid::new_v4();
 
     let proxies: Arc<Mutex<Vec<NewProxy>>> = Arc::new(Mutex::new(Vec::new()));

@@ -1,4 +1,4 @@
-use crate::{ca::CertificateAuthority, rewind::Rewind};
+use crate::{ca::CertificateAuthority, rewind::Rewind, worker::DBJob};
 
 use http::uri::{Authority, Scheme};
 use hyper::{
@@ -7,9 +7,20 @@ use hyper::{
 };
 use hyper_proxy::{Intercept, Proxy, ProxyConnector};
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
-use locust_core::crud::proxies::{get_general_proxy, get_proxy_by_domain};
+use locust_core::{
+    crud::{
+        self,
+        proxies::{get_general_proxy, get_proxy_by_domain},
+    },
+    models,
+};
 use sqlx::PgPool;
-use std::{convert::Infallible, future::Future, sync::Arc};
+use std::{
+    convert::Infallible,
+    future::Future,
+    sync::{mpsc, Arc},
+    time::Instant,
+};
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite},
     net::TcpStream,
@@ -35,6 +46,7 @@ fn spawn_with_trace<T: Send + Sync + 'static>(
 pub struct Service<CA> {
     ca: Arc<CA>,
     db: Arc<PgPool>,
+    db_job_chan: mpsc::Sender<DBJob>,
 }
 
 impl<CA> Clone for Service<CA> {
@@ -42,6 +54,7 @@ impl<CA> Clone for Service<CA> {
         Self {
             ca: Arc::clone(&self.ca),
             db: Arc::clone(&self.db),
+            db_job_chan: self.db_job_chan.clone(),
         }
     }
 }
@@ -50,8 +63,12 @@ impl<CA> Service<CA>
 where
     CA: CertificateAuthority,
 {
-    pub fn new(ca: Arc<CA>, db: Arc<PgPool>) -> Self {
-        Self { ca, db }
+    pub fn new(ca: Arc<CA>, db: Arc<PgPool>, db_job_chan: mpsc::Sender<DBJob>) -> Self {
+        Self {
+            ca,
+            db,
+            db_job_chan,
+        }
     }
 
     pub async fn proxy(self, req: Request<Body>) -> Result<Response<Body>, Infallible> {
@@ -61,12 +78,32 @@ where
         } else if hyper_tungstenite::is_upgrade_request(&req) {
             unimplemented!()
         } else {
-            let client = build_client(&self.db, req.uri()).await;
+            let upstream_proxy = self
+                .get_upstream_proxy(req.uri())
+                .await
+                .expect("Error getting proxy for client");
+            let client = build_client(&upstream_proxy);
+            let start_time = Instant::now();
             let res = client
                 .request(normalize_request(req))
                 .await
                 .expect("Error with request");
+            let duration = start_time.elapsed().as_millis();
+            if let Err(e) = self.db_job_chan.send(DBJob::ProxyResponse {
+                proxy_id: upstream_proxy.id,
+                status: res.status(),
+                response_time: duration as u32,
+            }) {
+                println!("Error sending proxy response job: {e}");
+            }
             Ok(res)
+        }
+    }
+
+    async fn get_upstream_proxy(&self, uri: &Uri) -> Result<models::proxies::Proxy, sqlx::Error> {
+        match uri.host() {
+            Some(host) => get_proxy_by_domain(&self.db, host).await,
+            None => get_general_proxy(&self.db).await,
         }
     }
 
@@ -191,15 +228,9 @@ where
     }
 }
 
-async fn build_client(
-    db: &PgPool,
-    uri: &Uri,
+fn build_client(
+    upstream_proxy: &models::proxies::Proxy,
 ) -> Client<ProxyConnector<HttpsConnector<HttpConnector>>> {
-    let upstream_proxy = match uri.host() {
-        Some(host) => get_proxy_by_domain(db, host).await,
-        None => get_general_proxy(db).await,
-    }
-    .expect("Error getting proxy for client");
     let https = HttpsConnectorBuilder::new()
         .with_webpki_roots()
         .https_or_http()
@@ -215,8 +246,8 @@ async fn build_client(
         .parse()
         .unwrap(),
     );
-    if let (Some(usr), Some(pwd)) = (upstream_proxy.username, upstream_proxy.password) {
-        let auth = headers::Authorization::basic(&usr, &pwd);
+    if let (Some(usr), Some(pwd)) = (&upstream_proxy.username, &upstream_proxy.password) {
+        let auth = headers::Authorization::basic(usr, pwd);
         proxy.set_authorization(auth);
     }
     let connector = ProxyConnector::from_proxy(https, proxy).unwrap();

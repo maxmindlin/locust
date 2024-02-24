@@ -1,6 +1,6 @@
 use sqlx::{postgres::PgPool, Error, Row};
 
-use crate::models::proxies::{NewProxy, Proxy};
+use crate::models::proxies::{NewProxy, Proxy, ProxyMetric};
 
 /// Gets the appropriate proxy for a given domain.
 /// If no proxy is attached to the given domain via tags,
@@ -164,5 +164,21 @@ pub async fn add_proxies(pool: &PgPool, proxies: &[NewProxy], tags: &[&str]) -> 
     }
 
     tx.commit().await?;
+    Ok(())
+}
+
+pub async fn add_proxy_metric(pool: &PgPool, metric: ProxyMetric) -> Result<(), Error> {
+    sqlx::query(
+        r#"
+            INSERT INTO
+            proxy_metrics (proxy_id, status, response_time)
+            values ($1, $2, $3)
+        "#,
+    )
+    .bind(metric.proxy_id)
+    .bind(metric.status as i32)
+    .bind(metric.response_time as i32)
+    .execute(pool)
+    .await?;
     Ok(())
 }
