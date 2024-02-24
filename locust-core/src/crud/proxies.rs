@@ -171,8 +171,8 @@ pub async fn add_proxy_metric(pool: &PgPool, metric: ProxyMetric) -> Result<(), 
     sqlx::query(
         r#"
             INSERT INTO
-            proxy_metrics (proxy_id, status, response_time)
-            values ($1, $2, $3)
+            proxy_metrics (time, proxy_id, status, response_time)
+            values (NOW(), $1, $2, $3)
         "#,
     )
     .bind(metric.proxy_id)

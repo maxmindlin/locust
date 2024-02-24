@@ -17,7 +17,7 @@ services:
     networks:
       - locust-net
     container_name: postgres-locust
-    image: postgres:15-alpine
+    image: timescale/timescaledb:latest-pg14
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
