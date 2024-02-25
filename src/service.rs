@@ -72,14 +72,15 @@ where
     }
 
     pub async fn proxy(self, req: Request<Body>) -> Result<Response<Body>, Infallible> {
-        println!("REQUEST: {:?}", req);
+        println!("REQUEST: {req:?}");
         if req.method() == Method::CONNECT {
             Ok(self.process_connect(req))
         } else if hyper_tungstenite::is_upgrade_request(&req) {
             unimplemented!()
         } else {
+            let host: Option<String> = req.uri().host().map(Into::into);
             let upstream_proxy = self
-                .get_upstream_proxy(req.uri())
+                .get_upstream_proxy(host.clone())
                 .await
                 .expect("Error getting proxy for client");
             let client = build_client(&upstream_proxy);
@@ -89,10 +90,12 @@ where
                 .await
                 .expect("Error with request");
             let duration = start_time.elapsed().as_millis();
+            println!("RESPONSE: {res:?}");
             if let Err(e) = self.db_job_chan.send(DBJob::ProxyResponse {
                 proxy_id: upstream_proxy.id,
                 status: res.status(),
                 response_time: duration as u32,
+                domain: host.map(Into::into),
             }) {
                 println!("Error sending proxy response job: {e}");
             }
@@ -100,9 +103,12 @@ where
         }
     }
 
-    async fn get_upstream_proxy(&self, uri: &Uri) -> Result<models::proxies::Proxy, sqlx::Error> {
-        match uri.host() {
-            Some(host) => get_proxy_by_domain(&self.db, host).await,
+    async fn get_upstream_proxy(
+        &self,
+        host: Option<String>,
+    ) -> Result<models::proxies::Proxy, sqlx::Error> {
+        match host {
+            Some(host) => get_proxy_by_domain(&self.db, &host).await,
             None => get_general_proxy(&self.db).await,
         }
     }

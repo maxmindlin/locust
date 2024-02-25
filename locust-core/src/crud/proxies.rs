@@ -19,7 +19,7 @@ pub async fn get_proxy_by_domain(pool: &PgPool, domain: &str) -> Result<Proxy, E
             JOIN domain_tag_map as dtm ON t.id = dtm.tag_id
             JOIN domains as d ON d.id = dtm.domain_id
             WHERE d.host = $1 AND p.date_deleted IS NULL
-            ORDER BY p.date_last_used
+            ORDER BY p.date_last_used DESC
         "#,
     )
     .bind(domain)
@@ -43,7 +43,7 @@ pub async fn get_general_proxy(pool: &PgPool) -> Result<Proxy, Error> {
                 p.id, p.protocol, p.host, p.port, p.username, p.password, p.provider
             FROM proxies as p
             WHERE p.date_deleted IS NULL
-            ORDER BY p.date_last_used
+            ORDER BY p.date_last_used DESC
         "#,
     )
     .fetch_one(pool)
@@ -171,13 +171,15 @@ pub async fn add_proxy_metric(pool: &PgPool, metric: ProxyMetric) -> Result<(), 
     sqlx::query(
         r#"
             INSERT INTO
-            proxy_metrics (time, proxy_id, status, response_time)
-            values (NOW(), $1, $2, $3)
+            proxy_metrics (time, proxy_id, status, success, response_time, domain)
+            values (NOW(), $1, $2, $3, $4, $5)
         "#,
     )
     .bind(metric.proxy_id)
     .bind(metric.status as i32)
+    .bind(metric.status < 400)
     .bind(metric.response_time as i32)
+    .bind(metric.domain.to_owned())
     .execute(pool)
     .await?;
     Ok(())

@@ -28,6 +28,7 @@ impl DBWorker {
                 proxy_id,
                 status,
                 response_time,
+                domain,
             } => {
                 if let Err(e) = add_proxy_metric(
                     &self.pool,
@@ -35,6 +36,7 @@ impl DBWorker {
                         proxy_id,
                         response_time,
                         status: status.as_u16(),
+                        domain,
                     },
                 )
                 .await
@@ -51,5 +53,6 @@ pub enum DBJob {
         proxy_id: i32,
         status: StatusCode,
         response_time: u32,
+        domain: Option<String>,
     },
 }
