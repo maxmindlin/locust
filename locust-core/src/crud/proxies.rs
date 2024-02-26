@@ -1,6 +1,9 @@
-use sqlx::{postgres::PgPool, Error, Row};
+use sqlx::{
+    postgres::{PgPool, PgRow},
+    Error, Row,
+};
 
-use crate::models::proxies::{NewProxy, Proxy, ProxyMetric};
+use crate::models::proxies::{NewProxy, Proxy, ProxyMetric, ProxySession};
 
 /// Gets the appropriate proxy for a given domain.
 /// If no proxy is attached to the given domain via tags,
@@ -52,6 +55,20 @@ pub async fn get_general_proxy(pool: &PgPool) -> Result<Proxy, Error> {
     update_proxy_last_used(pool, proxy.id).await?;
 
     Ok(proxy)
+}
+
+pub async fn get_proxy_by_id(pool: &PgPool, id: i32) -> Result<Proxy, Error> {
+    sqlx::query_as::<_, Proxy>(
+        r#"
+            SELECT
+                id, protocol, host, port, username, password, provider
+            FROM proxies
+            WHERE id = $1
+        "#,
+    )
+    .bind(id)
+    .fetch_one(pool)
+    .await
 }
 
 async fn update_proxy_last_used(pool: &PgPool, id: i32) -> Result<(), Error> {
@@ -183,4 +200,33 @@ pub async fn add_proxy_metric(pool: &PgPool, metric: ProxyMetric) -> Result<(), 
     .execute(pool)
     .await?;
     Ok(())
+}
+
+pub async fn get_proxy_session(pool: &PgPool, id: i32) -> Result<ProxySession, Error> {
+    let session = sqlx::query_as::<_, ProxySession>(
+        r#"
+            SELECT id, proxy_id FROM sessions WHERE id = $1
+        "#,
+    )
+    .bind(id)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(session)
+}
+
+pub async fn create_proxy_session(pool: &PgPool, proxy_id: i32) -> Result<ProxySession, Error> {
+    let session = sqlx::query_as::<_, ProxySession>(
+        r#"
+            INSERT INTO
+            sessions (proxy_id)
+            values ($1)
+            RETURNING id, proxy_id
+        "#,
+    )
+    .bind(proxy_id)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(session)
 }

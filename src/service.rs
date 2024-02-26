@@ -1,6 +1,11 @@
 use crate::{ca::CertificateAuthority, rewind::Rewind, worker::DBJob};
 
-use http::uri::{Authority, Scheme};
+use cookie::Cookie;
+use http::{
+    header::COOKIE,
+    uri::{Authority, Scheme},
+    HeaderValue,
+};
 use hyper::{
     client::HttpConnector, header::Entry, server::conn::Http, service::service_fn, Body, Client,
     Method, Request, Response, StatusCode, Uri,
@@ -10,7 +15,10 @@ use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use locust_core::{
     crud::{
         self,
-        proxies::{get_general_proxy, get_proxy_by_domain},
+        proxies::{
+            create_proxy_session, get_general_proxy, get_proxy_by_domain, get_proxy_by_id,
+            get_proxy_session,
+        },
     },
     models,
 };
@@ -28,6 +36,8 @@ use tokio::{
 };
 use tokio_rustls::TlsAcceptor;
 use tracing::{error, info_span, warn, Instrument, Span};
+
+const SESSION_KEY: &str = "locust_session";
 
 fn bad_request() -> Response<Body> {
     Response::builder()
@@ -78,14 +88,35 @@ where
         } else if hyper_tungstenite::is_upgrade_request(&req) {
             unimplemented!()
         } else {
+            let maybe_session = extract_session_cookie(&req);
             let host: Option<String> = req.uri().host().map(Into::into);
-            let upstream_proxy = self
-                .get_upstream_proxy(host.clone())
-                .await
-                .expect("Error getting proxy for client");
+            let (upstream_proxy, session_id) = match maybe_session {
+                None => {
+                    let proxy = self
+                        .get_upstream_proxy(host.clone())
+                        .await
+                        .expect("Error getting proxy for client");
+                    println!("CREATING SESSION");
+                    let session = create_proxy_session(&self.db, proxy.id)
+                        .await
+                        .expect("Error creation proxy session");
+                    (proxy, session.id)
+                }
+                Some(id) => {
+                    println!("USING SESSION");
+                    let session = get_proxy_session(&self.db, id)
+                        .await
+                        .expect("Error getting proxy session");
+                    let proxy = get_proxy_by_id(&self.db, session.proxy_id)
+                        .await
+                        .expect("Error getting proxy from session");
+                    (proxy, session.id)
+                }
+            };
             let client = build_client(&upstream_proxy);
             let start_time = Instant::now();
-            let res = client
+            println!("SENDING REQ");
+            let mut res = client
                 .request(normalize_request(req))
                 .await
                 .expect("Error with request");
@@ -99,6 +130,10 @@ where
             }) {
                 println!("Error sending proxy response job: {e}");
             }
+            res.headers_mut().insert(
+                "Set-Cookie",
+                HeaderValue::from_str(format!("{SESSION_KEY}={session_id}").as_ref()).unwrap(),
+            );
             Ok(res)
         }
     }
@@ -276,4 +311,17 @@ fn normalize_request<T>(mut req: Request<T>) -> Request<T> {
 
     *req.version_mut() = hyper::Version::HTTP_11;
     req
+}
+
+fn extract_session_cookie<T>(req: &Request<T>) -> Option<i32> {
+    let cookies = req.headers().get(COOKIE)?;
+    for cookie in Cookie::split_parse(cookies.to_str().unwrap()) {
+        let cookie = cookie.unwrap();
+        if cookie.name() == SESSION_KEY {
+            let val = cookie.value();
+            return Some(val.parse().unwrap());
+        }
+    }
+
+    None
 }

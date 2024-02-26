@@ -28,3 +28,9 @@ pub struct ProxyMetric {
     pub response_time: u32,
     pub domain: Option<String>,
 }
+
+#[derive(Debug, Clone, FromRow, PartialEq, Eq)]
+pub struct ProxySession {
+    pub id: i32,
+    pub proxy_id: i32,
+}
