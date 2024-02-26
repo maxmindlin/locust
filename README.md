@@ -25,11 +25,15 @@ See [releases](https://github.com/maxmindlin/locust/releases/latest) for binarie
   - Configuration commands that make sure your proxies work out of the box.
   - Querying via tags that gives visibility into proxies without having to execute SQL.
 
-Locust is a super proxy that maintains a pool of upstream proxies that it uses to route traffic to the requested web resources. As a user, you use it like any other proxy. When Locust receives a web request it analyzes the target URL and determines which proxy is best for the given request. Locust keeps track of metadata and metrics about every web request it completes in order to continually fine tune which proxies to use and remove bad ones. You can also tag web domains in order to instruct Locust to limit the pool of proxies it will choose from for requests to these domains. Via the CLI, you can also create and cycle Squid proxies in your GCP account which Locust will automatically start using as they are created.
+Locust is a super proxy that maintains a pool of upstream proxies that it uses to route traffic to the requested web resources. As a user, you use it like any other proxy. When Locust receives a web request it analyzes the target URL and determines which proxy is best for the given request.
 
 <h1 align="center">
 <img src="https://raw.githubusercontent.com/maxmindlin/locust/main/assets/diagram.png" width="700"><br>
 </h1>
+
+Locust keeps track of metadata and metrics about every web request it completes in order to continually fine tune which proxies to use and remove bad ones. You can also tag web domains in order to instruct Locust to limit the pool of proxies it will choose from for requests to these domains.
+
+Via the CLI, you can also create and cycle Squid proxies in your GCP account which Locust will automatically start using as they are created.
 
 ## Requirements
 

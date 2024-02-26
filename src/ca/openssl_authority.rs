@@ -49,6 +49,7 @@ pub struct OpensslAuthority {
     cache: Cache<Authority, Arc<ServerConfig>>,
 }
 
+#[allow(dead_code)]
 impl OpensslAuthority {
     /// Creates a new openssl authority.
     pub fn new(pkey: PKey<Private>, ca_cert: X509, hash: MessageDigest, cache_size: u64) -> Self {

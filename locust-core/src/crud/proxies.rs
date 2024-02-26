@@ -1,7 +1,4 @@
-use sqlx::{
-    postgres::{PgPool, PgRow},
-    Error, Row,
-};
+use sqlx::{postgres::PgPool, Error, Row};
 
 use crate::models::proxies::{NewProxy, Proxy, ProxyMetric, ProxySession};
 
@@ -58,7 +55,7 @@ pub async fn get_general_proxy(pool: &PgPool) -> Result<Proxy, Error> {
 }
 
 pub async fn get_proxy_by_id(pool: &PgPool, id: i32) -> Result<Proxy, Error> {
-    sqlx::query_as::<_, Proxy>(
+    let proxy = sqlx::query_as::<_, Proxy>(
         r#"
             SELECT
                 id, protocol, host, port, username, password, provider
@@ -68,7 +65,11 @@ pub async fn get_proxy_by_id(pool: &PgPool, id: i32) -> Result<Proxy, Error> {
     )
     .bind(id)
     .fetch_one(pool)
-    .await
+    .await?;
+
+    update_proxy_last_used(pool, id).await?;
+
+    Ok(proxy)
 }
 
 async fn update_proxy_last_used(pool: &PgPool, id: i32) -> Result<(), Error> {

@@ -13,12 +13,9 @@ use hyper::{
 use hyper_proxy::{Intercept, Proxy, ProxyConnector};
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use locust_core::{
-    crud::{
-        self,
-        proxies::{
-            create_proxy_session, get_general_proxy, get_proxy_by_domain, get_proxy_by_id,
-            get_proxy_session,
-        },
+    crud::proxies::{
+        create_proxy_session, get_general_proxy, get_proxy_by_domain, get_proxy_by_id,
+        get_proxy_session,
     },
     models,
 };
@@ -27,17 +24,19 @@ use std::{
     convert::Infallible,
     future::Future,
     sync::{mpsc, Arc},
-    time::Instant,
+    time::{Duration, Instant},
 };
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite},
     net::TcpStream,
     task::JoinHandle,
+    time::timeout,
 };
 use tokio_rustls::TlsAcceptor;
-use tracing::{error, info_span, warn, Instrument, Span};
+use tracing::{error, info, info_span, warn, Instrument, Span};
 
 const SESSION_KEY: &str = "locust_session";
+const DEFAULT_TIMEOUT_SECS: u64 = 30;
 
 fn bad_request() -> Response<Body> {
     Response::builder()
@@ -81,29 +80,41 @@ where
         }
     }
 
+    /// The main method for the proxy Service. Determines what type of network request
+    /// is being requested and handles it. Acts as a MITM proxy and decrypts the content
+    /// of the request.
+    ///
+    /// Modifies the request with required information for the Locust service and stores
+    /// metrics and metadata about proxy responses.
     pub async fn proxy(self, req: Request<Body>) -> Result<Response<Body>, Infallible> {
-        println!("REQUEST: {req:?}");
+        info!("REQUEST: {req:?}");
         if req.method() == Method::CONNECT {
             Ok(self.process_connect(req))
         } else if hyper_tungstenite::is_upgrade_request(&req) {
             unimplemented!()
         } else {
+            let req = normalize_request(req);
             let maybe_session = extract_session_cookie(&req);
             let host: Option<String> = req.uri().host().map(Into::into);
             let (upstream_proxy, session_id) = match maybe_session {
+                // If we dont already have a session, get a proxy
+                // from the db and create a new session with it.
                 None => {
                     let proxy = self
                         .get_upstream_proxy(host.clone())
                         .await
                         .expect("Error getting proxy for client");
-                    println!("CREATING SESSION");
+                    info!("CREATING SESSION");
                     let session = create_proxy_session(&self.db, proxy.id)
                         .await
                         .expect("Error creation proxy session");
                     (proxy, session.id)
                 }
+
+                // If we already have a session going then look it up
+                // and look up the proxy associated with it.
                 Some(id) => {
-                    println!("USING SESSION");
+                    info!("USING SESSION");
                     let session = get_proxy_session(&self.db, id)
                         .await
                         .expect("Error getting proxy session");
@@ -113,24 +124,51 @@ where
                     (proxy, session.id)
                 }
             };
+            // @TODO perhaps cache clients to various proxies? TBD how much
+            // overhead creating a client every time creates. Caching would
+            // increase memory usage but perhaps lower latency.
             let client = build_client(&upstream_proxy);
             let start_time = Instant::now();
-            println!("SENDING REQ");
-            let mut res = client
-                .request(normalize_request(req))
-                .await
-                .expect("Error with request");
+
+            // Make the upstream request, but wrap it in
+            // a timeout. If the timeout completes first,
+            // then return a gateway timeout response.
+            let mut res = match timeout(
+                Duration::from_secs(DEFAULT_TIMEOUT_SECS),
+                client.request(req),
+            )
+            .await
+            {
+                Ok(res) => match res {
+                    Ok(res) => res,
+                    Err(e) => {
+                        error!("Error making request {e}");
+                        Response::builder()
+                            .status(StatusCode::INTERNAL_SERVER_ERROR)
+                            .body(hyper::Body::empty())
+                            .unwrap()
+                    }
+                },
+                Err(_) => Response::builder()
+                    .status(StatusCode::GATEWAY_TIMEOUT)
+                    .body(hyper::Body::empty())
+                    .unwrap(),
+            };
             let duration = start_time.elapsed().as_millis();
-            println!("RESPONSE: {res:?}");
+            info!("RESPONSE STATUS: {}", res.status());
             if let Err(e) = self.db_job_chan.send(DBJob::ProxyResponse {
                 proxy_id: upstream_proxy.id,
                 status: res.status(),
                 response_time: duration as u32,
                 domain: host.map(Into::into),
             }) {
-                println!("Error sending proxy response job: {e}");
+                warn!("Error sending proxy response job: {e}");
             }
-            res.headers_mut().insert(
+
+            // Instruct the client to add the session cookie
+            // so that its included in the subsequent requests
+            // and we can make sure to use the same proxy.
+            res.headers_mut().append(
                 "Set-Cookie",
                 HeaderValue::from_str(format!("{SESSION_KEY}={session_id}").as_ref()).unwrap(),
             );
@@ -269,6 +307,8 @@ where
     }
 }
 
+/// Creates an HTTPS client that proxies traffic to the provided
+/// Proxy.
 fn build_client(
     upstream_proxy: &models::proxies::Proxy,
 ) -> Client<ProxyConnector<HttpsConnector<HttpConnector>>> {

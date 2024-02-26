@@ -3,6 +3,7 @@ use std::sync::{mpsc, Arc};
 use http::StatusCode;
 use locust_core::{crud::proxies::add_proxy_metric, models::proxies::ProxyMetric};
 use sqlx::PgPool;
+use tracing::warn;
 
 pub struct DBWorker {
     pool: Arc<PgPool>,
@@ -19,7 +20,7 @@ impl DBWorker {
             self.process_job(job).await;
         }
 
-        println!("Error receiving worker job. Exiting");
+        warn!("Error receiving worker job. Exiting");
     }
 
     async fn process_job(&self, job: DBJob) {
@@ -41,7 +42,7 @@ impl DBWorker {
                 )
                 .await
                 {
-                    println!("Error processing db job {e}");
+                    warn!("Error processing db job {e}");
                 }
             }
         }

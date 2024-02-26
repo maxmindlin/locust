@@ -2,6 +2,7 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 #[non_exhaustive]
+#[allow(dead_code)]
 pub enum Error {
     #[error("invalid CA")]
     Tls(#[from] rcgen::Error),

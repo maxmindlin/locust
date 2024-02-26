@@ -6,7 +6,7 @@ mod worker;
 
 use crate::worker::DBWorker;
 use ca::RcgenAuthority;
-use futures::{executor::block_on, Future};
+use futures::Future;
 use hyper::{
     server::conn::AddrStream,
     service::{make_service_fn, service_fn},
@@ -105,7 +105,7 @@ async fn main() {
         db_job_chan: tx,
     };
 
-    println!("Starting up proxy server!");
+    info!("Starting up proxy server!");
     if let Err(e) = wrapper.start(shutdown_signal()).await {
         error!("{}", e);
     }

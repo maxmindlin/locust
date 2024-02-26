@@ -6,7 +6,7 @@ pub mod crud;
 pub mod models;
 
 pub async fn new_pool() -> Result<PgPool, Error> {
-    let user = env::var("POSTGRES_USER").unwrap();
+    let user = env::var("POSTGRES_USER").unwrap_or("postgres".into());
     let pwd = env::var("POSTGRES_PASSWORD").unwrap_or("password".into());
     let db = env::var("POSTGRES_DB").unwrap_or("postgres".into());
     let host = env::var("POSTGRES_HOST").unwrap_or("localhost".into());
