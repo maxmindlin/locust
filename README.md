@@ -29,7 +29,7 @@ Locust is a super proxy that maintains a pool of upstream proxies that it uses t
 
 <br>
 <div align="center">
-<img src="https://raw.githubusercontent.com/maxmindlin/locust/main/assets/diagram.png" width="500">
+<img src="https://raw.githubusercontent.com/maxmindlin/locust/main/assets/diagram.png" width="600">
 </div>
 <br>
 
