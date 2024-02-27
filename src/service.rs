@@ -93,8 +93,8 @@ where
         } else if hyper_tungstenite::is_upgrade_request(&req) {
             unimplemented!()
         } else {
-            let req = normalize_request(req);
             let maybe_session = extract_session_cookie(&req);
+            let req = normalize_request(req);
             let host: Option<String> = req.uri().host().map(Into::into);
             let (upstream_proxy, session_id) = match maybe_session {
                 // If we dont already have a session, get a proxy
@@ -345,7 +345,15 @@ fn normalize_request<T>(mut req: Request<T>) -> Request<T> {
 
     // HTTP/2 supports multiple cookie headers, but HTTP/1.x only supports one.
     if let Entry::Occupied(mut cookies) = req.headers_mut().entry(hyper::header::COOKIE) {
-        let joined_cookies = bstr::join(b"; ", cookies.iter());
+        let joined_cookies = bstr::join(
+            b"; ",
+            // Remove the session key from cookies
+            cookies.iter().filter(|c| match c.to_str() {
+                Ok(s) => !s.contains(SESSION_KEY),
+                // if we cannot parse it as a str, then keep it idk.
+                Err(_) => true,
+            }),
+        );
         cookies.insert(joined_cookies.try_into().expect("Failed to join cookies"));
     }
 
