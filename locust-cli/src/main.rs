@@ -9,9 +9,16 @@ use crate::{
 
 use std::fs;
 
-use farm::gcp::{config::config_firewall, create::create_vms, delete::delete_vms};
+use farm::gcp::{
+    config::config_firewall,
+    create::create_vms,
+    delete::{delete_vms, query_and_delete_vms},
+    query::query_vms,
+};
 use locust_core::{
-    crud::proxies::{add_proxies, delete_proxies_by_tags, get_proxies_by_tags},
+    crud::proxies::{
+        add_proxies, delete_proxies_by_ids, delete_proxies_by_tags, get_proxies_by_tags,
+    },
     new_pool,
 };
 
@@ -160,6 +167,7 @@ async fn main() {
             }
         }
         Command::Query { tags } => {
+            let tags: Vec<&str> = tags.iter().map(AsRef::as_ref).collect();
             let proxies = get_proxies_by_tags(&db_pool, &tags)
                 .await
                 .expect("error fetching proxies");
@@ -181,8 +189,8 @@ async fn main() {
                 println!("Successfully added {} proxies!", vms.len());
             }
             FarmCommand::Delete { zone } => {
-                delete_vms(zone);
-                let tags = vec!["squid".to_string()];
+                query_and_delete_vms(zone);
+                let tags = vec!["squid"];
                 delete_proxies_by_tags(&db_pool, &tags)
                     .await
                     .expect("error deleting proxies from db");
@@ -194,18 +202,37 @@ async fn main() {
                 pwd,
                 zone,
             } => {
-                delete_vms(zone.clone());
-                let tags = vec!["squid".to_string()];
-                delete_proxies_by_tags(&db_pool, &tags)
-                    .await
-                    .expect("error deleting proxies from db");
-                let vms = create_vms(&project, &zone, &username, &pwd, num);
+                // We add new vms and delete from the db
+                // before deleting the old vms to minimize
+                // downtime. If you dont do this youd either have
+                // no proxies or hitting vms that dont exist anymore
 
                 let tags = vec!["squid"];
-                add_proxies(&db_pool, &vms, &tags)
+
+                // Get existing vm proxies
+                let old_vms = query_vms(&zone);
+                let old_proxies = get_proxies_by_tags(&db_pool, &tags)
+                    .await
+                    .expect("error getting old proxies from db");
+
+                // Create new VMs
+                let new_vms = create_vms(&project, &zone, &username, &pwd, num);
+
+                // Add new proxies
+                add_proxies(&db_pool, &new_vms, &tags)
                     .await
                     .expect("error adding proxies");
-                println!("Successfully added {} proxies!", vms.len());
+
+                // Delete old proxies from DB
+                let ids_delete: Vec<i32> = old_proxies.iter().map(|p| p.id).collect();
+                delete_proxies_by_ids(&db_pool, &ids_delete)
+                    .await
+                    .expect("error deleting old proxies");
+
+                // Delete old vms
+                delete_vms(zone, old_vms);
+
+                println!("Successfully added {} proxies!", new_vms.len());
                 println!("Done!");
             }
         },

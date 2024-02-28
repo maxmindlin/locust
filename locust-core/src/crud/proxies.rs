@@ -87,7 +87,7 @@ async fn update_proxy_last_used(pool: &PgPool, id: i32) -> Result<(), Error> {
     Ok(())
 }
 
-pub async fn get_proxies_by_tags(pool: &PgPool, tags: &[String]) -> Result<Vec<Proxy>, Error> {
+pub async fn get_proxies_by_tags(pool: &PgPool, tags: &[&str]) -> Result<Vec<Proxy>, Error> {
     let proxies = sqlx::query_as::<_, Proxy>(
         r#"
             SELECT
@@ -106,7 +106,21 @@ pub async fn get_proxies_by_tags(pool: &PgPool, tags: &[String]) -> Result<Vec<P
     Ok(proxies)
 }
 
-pub async fn delete_proxies_by_tags(pool: &PgPool, tags: &[String]) -> Result<(), Error> {
+pub async fn delete_proxies_by_ids(pool: &PgPool, ids: &[i32]) -> Result<(), Error> {
+    sqlx::query(
+        r#"
+            UPDATE proxies
+            SET date_deleted = now()
+            WHERE id = any($1)
+        "#,
+    )
+    .bind(ids)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+pub async fn delete_proxies_by_tags(pool: &PgPool, tags: &[&str]) -> Result<(), Error> {
     sqlx::query(
         r#"
             UPDATE proxies

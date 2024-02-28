@@ -2,7 +2,7 @@ use crate::{ca::CertificateAuthority, rewind::Rewind, worker::DBJob};
 
 use cookie::Cookie;
 use http::{
-    header::COOKIE,
+    header::{COOKIE, SET_COOKIE},
     uri::{Authority, Scheme},
     HeaderValue,
 };
@@ -35,7 +35,7 @@ use tokio::{
 use tokio_rustls::TlsAcceptor;
 use tracing::{error, info, info_span, warn, Instrument, Span};
 
-const SESSION_KEY: &str = "locust_session";
+const SESSION_KEY: &str = "_lcst_sess";
 const DEFAULT_TIMEOUT_SECS: u64 = 30;
 
 fn bad_request() -> Response<Body> {
@@ -93,8 +93,9 @@ where
         } else if hyper_tungstenite::is_upgrade_request(&req) {
             unimplemented!()
         } else {
-            let maybe_session = extract_session_cookie(&req);
             let req = normalize_request(req);
+            // @TODO remove the session cookie after we extract it
+            let maybe_session = extract_session_cookie(&req);
             let host: Option<String> = req.uri().host().map(Into::into);
             let (upstream_proxy, session_id) = match maybe_session {
                 // If we dont already have a session, get a proxy
@@ -169,7 +170,7 @@ where
             // so that its included in the subsequent requests
             // and we can make sure to use the same proxy.
             res.headers_mut().append(
-                "Set-Cookie",
+                SET_COOKIE,
                 HeaderValue::from_str(format!("{SESSION_KEY}={session_id}").as_ref()).unwrap(),
             );
             Ok(res)
@@ -345,15 +346,7 @@ fn normalize_request<T>(mut req: Request<T>) -> Request<T> {
 
     // HTTP/2 supports multiple cookie headers, but HTTP/1.x only supports one.
     if let Entry::Occupied(mut cookies) = req.headers_mut().entry(hyper::header::COOKIE) {
-        let joined_cookies = bstr::join(
-            b"; ",
-            // Remove the session key from cookies
-            cookies.iter().filter(|c| match c.to_str() {
-                Ok(s) => !s.contains(SESSION_KEY),
-                // if we cannot parse it as a str, then keep it idk.
-                Err(_) => true,
-            }),
-        );
+        let joined_cookies = bstr::join(b"; ", cookies.iter());
         cookies.insert(joined_cookies.try_into().expect("Failed to join cookies"));
     }
 
