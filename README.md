@@ -62,3 +62,11 @@ Docker compose:
 - `docker-compose up --build`
 
 Docker image can be ran without compose, but you must ensure that it is provided with ENV vars for PSQL connection parameters.
+
+### TLS
+
+Locust uses its own self-signed certs for HTTPS requests. In order to use Locust as a trusted CA, you must add its cert as a trusted source in your OS keychain.
+
+1. Open `locust/src/ca/locust.cer` with Keychain Access app.
+2. Double-click the Locust cert.
+3. Set the Trust option to `Always Trust`.

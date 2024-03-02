@@ -6,6 +6,13 @@ pub mod crud;
 pub mod models;
 
 pub async fn new_pool() -> Result<PgPool, Error> {
+    let conn_string = get_conn_string();
+    let pool = PgPoolOptions::new().connect(&conn_string).await?;
+
+    Ok(pool)
+}
+
+pub fn get_conn_string() -> String {
     let user = env::var("POSTGRES_USER").unwrap_or("postgres".into());
     let pwd = env::var("POSTGRES_PASSWORD").unwrap_or("password".into());
     let db = env::var("POSTGRES_DB").unwrap_or("postgres".into());
@@ -14,9 +21,5 @@ pub async fn new_pool() -> Result<PgPool, Error> {
         .unwrap_or("5432".into())
         .parse::<usize>()
         .expect("Invalid psql port");
-    let conn_string = format!("postgresql://{}:{}@{}:{}/{}", user, pwd, host, port, db);
-
-    let pool = PgPoolOptions::new().connect(&conn_string).await?;
-
-    Ok(pool)
+    format!("postgresql://{}:{}@{}:{}/{}", user, pwd, host, port, db)
 }
