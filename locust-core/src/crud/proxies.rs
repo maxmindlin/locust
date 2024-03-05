@@ -1,9 +1,9 @@
 use sqlx::{postgres::PgPool, Error, Row};
 
-use crate::models::proxies::{NewProxy, Proxy, ProxyMetric, ProxySession};
+use crate::models::proxies::{NewProxy, Proxy, ProxySession};
 
 /// Gets the appropriate proxy for a given domain.
-/// If no proxy is attached to the given domain via tags,
+/// If no proxy is attached to the given domain via locust_tags,
 /// then it gets a general proxy ordered by the date
 /// of its last use.
 ///
@@ -13,11 +13,11 @@ pub async fn get_proxy_by_domain(pool: &PgPool, domain: &str) -> Result<Proxy, E
         r#"
             SELECT
                 p.id, p.protocol, p.host, p.port, p.username, p.password, p.provider
-            FROM proxies as p
-            JOIN proxy_tag_map as ptm ON p.id = ptm.proxy_id
-            JOIN tags as t ON ptm.tag_id = t.id
-            JOIN domain_tag_map as dtm ON t.id = dtm.tag_id
-            JOIN domains as d ON d.id = dtm.domain_id
+            FROM locust_proxies as p
+            JOIN locust_proxy_tag_map as ptm ON p.id = ptm.proxy_id
+            JOIN locust_tags as t ON ptm.tag_id = t.id
+            JOIN locust_domain_tag_map as dtm ON t.id = dtm.tag_id
+            JOIN locust_domains as d ON d.id = dtm.domain_id
             WHERE d.host = $1 AND p.date_deleted IS NULL
             ORDER BY p.date_last_used DESC
         "#,
@@ -41,7 +41,7 @@ pub async fn get_general_proxy(pool: &PgPool) -> Result<Proxy, Error> {
         r#"
             SELECT
                 p.id, p.protocol, p.host, p.port, p.username, p.password, p.provider
-            FROM proxies as p
+            FROM locust_proxies as p
             WHERE p.date_deleted IS NULL
             ORDER BY p.date_last_used DESC
         "#,
@@ -59,7 +59,7 @@ pub async fn get_proxy_by_id(pool: &PgPool, id: i32) -> Result<Proxy, Error> {
         r#"
             SELECT
                 id, protocol, host, port, username, password, provider
-            FROM proxies
+            FROM locust_proxies
             WHERE id = $1
         "#,
     )
@@ -75,7 +75,7 @@ pub async fn get_proxy_by_id(pool: &PgPool, id: i32) -> Result<Proxy, Error> {
 async fn update_proxy_last_used(pool: &PgPool, id: i32) -> Result<(), Error> {
     sqlx::query(
         r#"
-            UPDATE proxies
+            UPDATE locust_proxies
             SET date_last_used = now()
             WHERE id = $1
         "#,
@@ -87,19 +87,19 @@ async fn update_proxy_last_used(pool: &PgPool, id: i32) -> Result<(), Error> {
     Ok(())
 }
 
-pub async fn get_proxies_by_tags(pool: &PgPool, tags: &[&str]) -> Result<Vec<Proxy>, Error> {
+pub async fn get_proxies_by_tags(pool: &PgPool, locust_tags: &[&str]) -> Result<Vec<Proxy>, Error> {
     let proxies = sqlx::query_as::<_, Proxy>(
         r#"
             SELECT
                 p.id, p.protocol, p.host, p.port, p.username, p.password, p.provider
-            FROM proxies as p
-            JOIN proxy_tag_map as ptm ON p.id = ptm.proxy_id
-            JOIN tags as t ON ptm.tag_id = t.id
+            FROM locust_proxies as p
+            JOIN locust_proxy_tag_map as ptm ON p.id = ptm.proxy_id
+            JOIN locust_tags as t ON ptm.tag_id = t.id
             WHERE t.name = any($1)
             AND p.date_deleted IS NULL
         "#,
     )
-    .bind(tags)
+    .bind(locust_tags)
     .fetch_all(pool)
     .await?;
 
@@ -109,7 +109,7 @@ pub async fn get_proxies_by_tags(pool: &PgPool, tags: &[&str]) -> Result<Vec<Pro
 pub async fn delete_proxies_by_ids(pool: &PgPool, ids: &[i32]) -> Result<(), Error> {
     sqlx::query(
         r#"
-            UPDATE proxies
+            UPDATE locust_proxies
             SET date_deleted = now()
             WHERE id = any($1)
         "#,
@@ -120,35 +120,39 @@ pub async fn delete_proxies_by_ids(pool: &PgPool, ids: &[i32]) -> Result<(), Err
     Ok(())
 }
 
-pub async fn delete_proxies_by_tags(pool: &PgPool, tags: &[&str]) -> Result<(), Error> {
+pub async fn delete_proxies_by_tags(pool: &PgPool, locust_tags: &[&str]) -> Result<(), Error> {
     sqlx::query(
         r#"
-            UPDATE proxies
+            UPDATE locust_proxies
             SET date_deleted = now()
             WHERE id IN (
                 SELECT p.id
-                FROM proxies as p
-                JOIN proxy_tag_map as ptm ON p.id = ptm.proxy_id
-                JOIN tags as t ON ptm.tag_id = t.id
+                FROM locust_proxies as p
+                JOIN locust_proxy_tag_map as ptm ON p.id = ptm.proxy_id
+                JOIN locust_tags as t ON ptm.tag_id = t.id
                 WHERE t.name = any($1)
                 AND p.date_deleted IS NULL
             )
         "#,
     )
-    .bind(tags)
+    .bind(locust_tags)
     .execute(pool)
     .await?;
     Ok(())
 }
 
-pub async fn add_proxies(pool: &PgPool, proxies: &[NewProxy], tags: &[&str]) -> Result<(), Error> {
+pub async fn add_proxies(
+    pool: &PgPool,
+    proxies: &[NewProxy],
+    locust_tags: &[&str],
+) -> Result<(), Error> {
     let mut tx = pool.begin().await?;
 
     let mut tag_ids: Vec<i32> = Vec::new();
-    for tag in tags {
+    for tag in locust_tags {
         let id = sqlx::query(
             r#"
-                INSERT INTO tags (name) 
+                INSERT INTO locust_tags (name) 
                 values ($1) ON CONFLICT (name) DO UPDATE 
                 SET name=EXCLUDED.name
                 RETURNING id
@@ -165,7 +169,7 @@ pub async fn add_proxies(pool: &PgPool, proxies: &[NewProxy], tags: &[&str]) -> 
         let proxy_id: i32 = sqlx::query(
             r#"
                 INSERT INTO
-                proxies (protocol, host, port, username, password, provider)
+                locust_proxies (protocol, host, port, username, password, provider)
                 values ($1, $2, $3, $4, $5, $6)
                 RETURNING id
             "#,
@@ -184,7 +188,7 @@ pub async fn add_proxies(pool: &PgPool, proxies: &[NewProxy], tags: &[&str]) -> 
             sqlx::query(
                 r#"
                     INSERT INTO
-                    proxy_tag_map (proxy_id, tag_id)
+                    locust_proxy_tag_map (proxy_id, tag_id)
                     values ($1, $2)
                 "#,
             )
@@ -196,24 +200,6 @@ pub async fn add_proxies(pool: &PgPool, proxies: &[NewProxy], tags: &[&str]) -> 
     }
 
     tx.commit().await?;
-    Ok(())
-}
-
-pub async fn add_proxy_metric(pool: &PgPool, metric: ProxyMetric) -> Result<(), Error> {
-    sqlx::query(
-        r#"
-            INSERT INTO
-            proxy_metrics (time, proxy_id, status, success, response_time, domain)
-            values (NOW(), $1, $2, $3, $4, $5)
-        "#,
-    )
-    .bind(metric.proxy_id)
-    .bind(metric.status as i32)
-    .bind(metric.status < 400)
-    .bind(metric.response_time as i32)
-    .bind(metric.domain.to_owned())
-    .execute(pool)
-    .await?;
     Ok(())
 }
 

@@ -7,7 +7,7 @@ use crate::{
     proxy_table::ProxyTable,
 };
 
-use std::fs;
+use std::{fs, str::FromStr, thread};
 
 use farm::gcp::{
     config::config_firewall,
@@ -19,11 +19,17 @@ use locust_core::{
     crud::proxies::{
         add_proxies, delete_proxies_by_ids, delete_proxies_by_tags, get_proxies_by_tags,
     },
-    new_pool,
+    get_conn_string, new_pool,
 };
 
 use clap::{Parser, Subcommand, ValueEnum};
 use providers::infatica::InfaticaParser;
+use refinery::config::Config;
+
+mod embedded {
+    use refinery::embed_migrations;
+    embed_migrations!("../migrations");
+}
 
 #[derive(Debug, Parser)]
 #[command(arg_required_else_help = true)]
@@ -63,6 +69,7 @@ enum Command {
         #[arg(short, long, default_value_t = String::from("us-central1-a"))]
         zone: String,
     },
+    Migrate {},
 }
 
 #[derive(Debug, Clone, Subcommand)]
@@ -236,5 +243,15 @@ async fn main() {
                 println!("Done!");
             }
         },
+        Command::Migrate {} => {
+            let conn_string = get_conn_string();
+            let mut conf = Config::from_str(&conn_string).expect("Invalid connection string");
+            thread::spawn(move || {
+                embedded::migrations::runner().run(&mut conf).unwrap();
+            })
+            .join()
+            .expect("Could not run migration thread");
+            println!("Migrations applied!");
+        }
     }
 }

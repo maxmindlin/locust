@@ -1,7 +1,6 @@
 use std::sync::{mpsc, Arc};
 
 use http::StatusCode;
-use locust_core::{crud::proxies::add_proxy_metric, models::proxies::ProxyMetric};
 use sqlx::PgPool;
 use tracing::warn;
 
@@ -30,21 +29,7 @@ impl DBWorker {
                 status,
                 response_time,
                 domain,
-            } => {
-                if let Err(e) = add_proxy_metric(
-                    &self.pool,
-                    ProxyMetric {
-                        proxy_id,
-                        response_time,
-                        status: status.as_u16(),
-                        domain,
-                    },
-                )
-                .await
-                {
-                    warn!("Error processing db job {e}");
-                }
-            }
+            } => {}
         }
     }
 }

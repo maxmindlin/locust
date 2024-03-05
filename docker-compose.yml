@@ -11,13 +11,13 @@ services:
       - 3000:3000
     depends_on:
       - postgres-locust
-      - flyway-locust
+      # - flyway-locust
 
   postgres-locust:
     networks:
       - locust-net
     container_name: postgres-locust
-    image: timescale/timescaledb:latest-pg14
+    image: postgres:15-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
