@@ -1,4 +1,4 @@
-<h1 align="center">
+<div align="center">
 <img src="https://raw.githubusercontent.com/maxmindlin/locust/main/assets/logo2.png" width="400"><br>
 <p style="font-size:0.5em;color:#d4d4d4">MITM proxy and proxy management tool</p>
 <img alt="GitHub License" src="https://img.shields.io/github/license/maxmindlin/locust?style=for-the-badge">
@@ -6,7 +6,7 @@
   <img alt="GitHub Release" src="https://img.shields.io/github/v/release/maxmindlin/locust?style=for-the-badge">
 </a>
 <img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/maxmindlin/locust/ci.yml?style=for-the-badge&label=CI">
-</h1>
+</div>
 
 # Locust
 
