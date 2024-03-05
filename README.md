@@ -1,6 +1,6 @@
 <h1 align="center">
 <img src="https://raw.githubusercontent.com/maxmindlin/locust/main/assets/logo2.png" width="400"><br>
-<p style="font-size:10px;color:#d4d4d4">MITM proxy and proxy management tool</p>
+<p style="font-size:5px;color:#d4d4d4">MITM proxy and proxy management tool</p>
 <img alt="GitHub License" src="https://img.shields.io/github/license/maxmindlin/locust?style=for-the-badge">
 <a href="https://github.com/maxmindlin/locust/releases/latest" target="blank">
   <img alt="GitHub Release" src="https://img.shields.io/github/v/release/maxmindlin/locust?style=for-the-badge">
