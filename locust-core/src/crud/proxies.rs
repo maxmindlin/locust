@@ -1,6 +1,9 @@
 use sqlx::{postgres::PgPool, Error, Row};
 
-use crate::models::proxies::{NewProxy, Proxy, ProxySession};
+use crate::models::proxies::{NewProxy, Proxy, ProxyDomainCoeff, ProxySession};
+
+const DEFAULT_COEF: i32 = 50;
+const COEF_INCR: i32 = 5;
 
 /// Gets the appropriate proxy for a given domain.
 /// If no proxy is attached to the given domain via locust_tags,
@@ -152,8 +155,8 @@ pub async fn add_proxies(
     for tag in locust_tags {
         let id = sqlx::query(
             r#"
-                INSERT INTO locust_tags (name) 
-                values ($1) ON CONFLICT (name) DO UPDATE 
+                INSERT INTO locust_tags (name)
+                values ($1) ON CONFLICT (name) DO UPDATE
                 SET name=EXCLUDED.name
                 RETURNING id
             "#,
@@ -230,4 +233,61 @@ pub async fn create_proxy_session(pool: &PgPool, proxy_id: i32) -> Result<ProxyS
     .await?;
 
     Ok(session)
+}
+
+pub async fn increment_proxy_coefficient(
+    pool: &PgPool,
+    proxy_id: i32,
+    domain_id: i32,
+    success: bool,
+) -> Result<(), Error> {
+    let maybe_coef = sqlx::query_as::<_, ProxyDomainCoeff>(
+        r#"
+            SELECT proxy_id, domain_id, coefficient
+            FROM locust_domain_coefficients
+            WHERE proxy_id = $1 AND domain_id = $2
+        "#,
+    )
+    .bind(proxy_id)
+    .bind(domain_id)
+    .fetch_optional(pool)
+    .await?;
+
+    match maybe_coef {
+        Some(coef) => {
+            let incr = match success {
+                true => std::cmp::min(coef.coefficient + COEF_INCR, 100),
+                false => std::cmp::max(coef.coefficient - COEF_INCR, 0),
+            };
+
+            sqlx::query(
+                r#"
+                    UPDATE locust_domain_coefficients
+                    SET coefficient = $1
+                    WHERE proxy_id = $2 AND domain_id = $3
+                "#,
+            )
+            .bind(incr)
+            .bind(proxy_id)
+            .bind(domain_id)
+            .execute(pool)
+            .await?;
+        }
+        None => {
+            sqlx::query(
+                r#"
+                    INSERT INTO
+                    locust_domain_coefficients (proxy_id, domain_id, coefficient)
+                    values ($1, $2, $3)
+                "#,
+            )
+            .bind(proxy_id)
+            .bind(domain_id)
+            .bind(DEFAULT_COEF)
+            .execute(pool)
+            .await?;
+        }
+    };
+
+    Ok(())
 }

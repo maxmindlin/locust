@@ -1,6 +1,7 @@
 use std::sync::{mpsc, Arc};
 
 use http::StatusCode;
+use locust_core::crud::{domains::get_domain_by_host, proxies::increment_proxy_coefficient};
 use sqlx::PgPool;
 use tracing::warn;
 
@@ -27,20 +28,33 @@ impl DBWorker {
             DBJob::ProxyResponse {
                 proxy_id,
                 status,
-                response_time,
+                response_time: _,
                 domain,
             } => {
                 // Modify success coefficient in DB
                 // to keep track of proxy success across domains.
                 // Coeff will be used to calculate likelihood of
                 // What proxies to use.
+                if domain.is_none() {
+                    return;
+                }
 
                 // Check for domain entry
+                let maybe_domain = get_domain_by_host(&self.pool, domain.as_ref().unwrap())
+                    .await
+                    .expect("Error getting domain");
 
                 // Add domain if not exists
+                let domain_id = match maybe_domain {
+                    Some(domain) => domain.id,
+                    None => unimplemented!(),
+                };
 
                 // Increment/decrement entry for proxy_id & domain
                 // Add entry with default if not exists
+                increment_proxy_coefficient(&self.pool, proxy_id, domain_id, status.as_u16() < 400)
+                    .await
+                    .expect("Error incrementing proxy coeff");
             }
             DBJob::CalcNextProxies {} => {}
         }

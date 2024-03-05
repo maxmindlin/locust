@@ -26,3 +26,10 @@ pub struct ProxySession {
     pub id: i32,
     pub proxy_id: i32,
 }
+
+#[derive(Debug, Clone, FromRow, PartialEq, Eq)]
+pub struct ProxyDomainCoeff {
+    pub proxy_id: i32,
+    pub domain_id: i32,
+    pub coefficient: i32,
+}
