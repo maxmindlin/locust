@@ -29,16 +29,35 @@ impl DBWorker {
                 status,
                 response_time,
                 domain,
-            } => {}
+            } => {
+                // Modify success coefficient in DB
+                // to keep track of proxy success across domains.
+                // Coeff will be used to calculate likelihood of
+                // What proxies to use.
+
+                // Check for domain entry
+
+                // Add domain if not exists
+
+                // Increment/decrement entry for proxy_id & domain
+                // Add entry with default if not exists
+            }
+            DBJob::CalcNextProxies {} => {}
         }
     }
 }
 
 pub enum DBJob {
+    /// Results from a proxy response.
     ProxyResponse {
         proxy_id: i32,
         status: StatusCode,
         response_time: u32,
         domain: Option<String>,
     },
+
+    /// Time to calculate next proxy
+    /// to use across domains based upon
+    /// success coefficients.
+    CalcNextProxies {},
 }

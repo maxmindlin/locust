@@ -94,7 +94,7 @@ where
             unimplemented!()
         } else {
             let req = normalize_request(req);
-            // @TODO remove the session cookie after we extract it
+            // @TODO: remove the session cookie after we extract it
             let maybe_session = extract_session_cookie(&req);
             let host: Option<String> = req.uri().host().map(Into::into);
             let (upstream_proxy, session_id) = match maybe_session {
@@ -125,7 +125,7 @@ where
                     (proxy, session.id)
                 }
             };
-            // @TODO perhaps cache clients to various proxies? TBD how much
+            // @TODO: perhaps cache clients to various proxies? TBD how much
             // overhead creating a client every time creates. Caching would
             // increase memory usage but perhaps lower latency.
             let client = build_client(&upstream_proxy);

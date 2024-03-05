@@ -19,7 +19,7 @@ use std::{
     convert::Infallible,
     net::SocketAddr,
     sync::{mpsc, Arc},
-    thread,
+    thread, time,
 };
 use tokio::runtime::Runtime;
 use tracing::*;
@@ -92,11 +92,21 @@ async fn main() {
     let db_pool_arc = Arc::new(db_pool);
     let (tx, rx) = mpsc::channel();
 
-    // @TODO could probably make a worker pool instead of a single worker.
+    // @TODO: could probably make a worker pool instead of a single worker.
     let worker = DBWorker::new(Arc::clone(&db_pool_arc), rx);
     thread::spawn(move || {
         let rt = Runtime::new().unwrap();
         rt.block_on(worker.start());
+    });
+
+    let calc_timer_tx = tx.clone();
+    thread::spawn(move || loop {
+        // Calc next proxies every 5 minutes.
+        // @TODO: this will happen across horizontal services.. Thats ok?
+        thread::sleep(time::Duration::from_secs(300));
+        if let Err(e) = calc_timer_tx.send(DBJob::CalcNextProxies {}) {
+            warn!("error sending calc proxies job {e}");
+        }
     });
 
     let wrapper = ServiceWrapper {
