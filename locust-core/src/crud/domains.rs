@@ -14,3 +14,18 @@ pub async fn get_domain_by_host(pool: &PgPool, host: &str) -> Result<Option<Doma
     .fetch_optional(pool)
     .await
 }
+
+pub async fn create_domain(pool: &PgPool, host: &str) -> Result<Domain, Error> {
+    sqlx::query_as::<_, Domain>(
+        r#"
+            INSERT INTO
+            locust_domains (host)
+            values ($1) ON CONFLICT (host) DO UPDATE
+            SET host=EXCLUDED.host
+            RETURNING id, host
+        "#,
+    )
+    .bind(host)
+    .fetch_one(pool)
+    .await
+}

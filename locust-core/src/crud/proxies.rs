@@ -209,7 +209,7 @@ pub async fn add_proxies(
 pub async fn get_proxy_session(pool: &PgPool, id: i32) -> Result<ProxySession, Error> {
     let session = sqlx::query_as::<_, ProxySession>(
         r#"
-            SELECT id, proxy_id FROM sessions WHERE id = $1
+            SELECT id, proxy_id FROM locust_sessions WHERE id = $1
         "#,
     )
     .bind(id)
@@ -223,7 +223,7 @@ pub async fn create_proxy_session(pool: &PgPool, proxy_id: i32) -> Result<ProxyS
     let session = sqlx::query_as::<_, ProxySession>(
         r#"
             INSERT INTO
-            sessions (proxy_id)
+            locust_sessions (proxy_id)
             values ($1)
             RETURNING id, proxy_id
         "#,
