@@ -152,8 +152,8 @@ pub async fn add_proxies(
     for tag in locust_tags {
         let id = sqlx::query(
             r#"
-                INSERT INTO locust_tags (name) 
-                values ($1) ON CONFLICT (name) DO UPDATE 
+                INSERT INTO locust_tags (name)
+                values ($1) ON CONFLICT (name) DO UPDATE
                 SET name=EXCLUDED.name
                 RETURNING id
             "#,

@@ -36,7 +36,7 @@ use tokio_rustls::TlsAcceptor;
 use tracing::{error, info, info_span, warn, Instrument, Span};
 
 const SESSION_KEY: &str = "_lcst_sess";
-const DEFAULT_TIMEOUT_SECS: u64 = 30;
+const DEFAULT_TIMEOUT_SECS: u64 = 180;
 
 fn bad_request() -> Response<Body> {
     Response::builder()
@@ -91,7 +91,8 @@ where
         if req.method() == Method::CONNECT {
             Ok(self.process_connect(req))
         } else if hyper_tungstenite::is_upgrade_request(&req) {
-            unimplemented!()
+            error!("received a socket request: unimplemented");
+            Ok(bad_request())
         } else {
             let req = normalize_request(req);
             // @TODO: remove the session cookie after we extract it

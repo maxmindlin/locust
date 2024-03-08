@@ -1193,6 +1193,7 @@ dependencies = [
  "serde",
  "tabled",
  "tokio",
+ "urlencoding",
  "uuid",
 ]
 
@@ -1201,6 +1202,7 @@ name = "locust-core"
 version = "0.3.0"
 dependencies = [
  "sqlx",
+ "urlencoding",
 ]
 
 [[package]]

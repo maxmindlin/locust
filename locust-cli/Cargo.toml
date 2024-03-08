@@ -15,6 +15,7 @@ csv = "1.3.0"
 tabled = "0.15.0"
 rayon = "1.8.1"
 refinery = { version = "0.8", features = ["postgres"] }
+urlencoding = "2.1.3"
 
 [dependencies.uuid]
 version = "1.7.0"
