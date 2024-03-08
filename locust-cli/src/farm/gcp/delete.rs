@@ -4,19 +4,8 @@ use crate::farm::ExistingVM;
 
 use super::{query::query_vms, THREAD_MAX_SIZE};
 
+// @TODO: refactor duplication
 pub fn query_and_delete_vms(zone: String) {
-    // let mut threads = Vec::new();
-    // for vm in query_vms(&zone) {
-    //     let zone = zone.clone();
-    //     threads.push(thread::spawn(move || {
-    //         delete_vm(zone, vm);
-    //     }));
-    // }
-
-    // for t in threads {
-    //     t.join().unwrap();
-    // }
-
     let vms = query_vms(&zone);
     let n_vms = vms.len();
     let mut batch = 0;
@@ -39,6 +28,7 @@ pub fn query_and_delete_vms(zone: String) {
     }
 }
 
+// @TODO: refactor duplication
 pub fn delete_vms(zone: String, vms: Vec<ExistingVM>) {
     let n_vms = vms.len();
     let mut batch = 0;
