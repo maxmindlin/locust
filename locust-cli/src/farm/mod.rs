@@ -10,7 +10,7 @@ pub struct CreatedVM {
     pub external_ip: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct ExistingVM {
     pub name: String,
 }

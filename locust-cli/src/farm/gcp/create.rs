@@ -9,14 +9,21 @@ use uuid::Uuid;
 
 use crate::farm::{gcp::DEFAULT_SQUID_PORT, CreatedVM};
 
+use super::THREAD_MAX_SIZE;
+
 pub fn create_vms(project: &str, zone: &str, username: &str, pwd: &str, num: u16) -> Vec<NewProxy> {
     let id = Uuid::new_v4();
 
     let proxies: Arc<Mutex<Vec<NewProxy>>> = Arc::new(Mutex::new(Vec::new()));
-    thread::scope(|s| {
-        for i in 0..num {
-            let proxies_a = Arc::clone(&proxies);
-            s.spawn(move || {
+    let mut batch = 0;
+    while batch < num {
+        let start = batch;
+        batch += THREAD_MAX_SIZE as u16;
+        let ceil = std::cmp::min(batch, num);
+        thread::scope(|s| {
+            for i in start..ceil {
+                let proxies_a = Arc::clone(&proxies);
+                s.spawn(move || {
                 let vm_id = format!("squid-{}-{}", id, i);
                 println!("CREATING {}", vm_id);
                 let output = process::Command::new("gcloud")
@@ -97,8 +104,9 @@ sudo systemctl restart squid
                 }
 
             });
-        }
-    });
+            }
+        });
+    }
 
     Arc::try_unwrap(proxies).unwrap().into_inner().unwrap()
 }
