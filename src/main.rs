@@ -3,7 +3,8 @@ mod error;
 mod rewind;
 mod service;
 mod worker;
-
+mod metrics;
+use crate::metrics::MetricsService;
 use crate::worker::DBWorker;
 use ca::RcgenAuthority;
 use futures::Future;
@@ -92,8 +93,10 @@ async fn main() {
     let db_pool_arc = Arc::new(db_pool);
     let (tx, rx) = mpsc::channel();
 
+    let metrics_service = MetricsService::new();
+
     // @TODO: could probably make a worker pool instead of a single worker.
-    let worker = DBWorker::new(Arc::clone(&db_pool_arc), rx);
+    let worker = DBWorker::new(Arc::clone(&db_pool_arc), rx,metrics_service);
     thread::spawn(move || {
         let rt = Runtime::new().unwrap();
         rt.block_on(worker.start());

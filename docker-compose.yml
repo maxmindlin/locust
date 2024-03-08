@@ -11,6 +11,8 @@ services:
       - 3000:3000
     depends_on:
       - postgres-locust
+      - influxdb
+      - telegraf
       # - flyway-locust
 
   postgres-locust:
@@ -47,6 +49,54 @@ services:
       - ./migrations:/flyway/sql
     depends_on:
       - postgres-locust
+
+  influxdb:
+    networks:
+      - locust-net
+    image: influxdb:latest
+    ports:
+      - 8086:8086
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: ${DOCKER_INFLUXDB_INIT_MODE}
+      DOCKER_INFLUXDB_INIT_ORG: ${DOCKER_INFLUXDB_INIT_ORG}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${DOCKER_INFLUXDB_INIT_BUCKET}
+      DOCKER_INFLUXDB_INIT_USERNAME: ${DOCKER_INFLUXDB_INIT_USERNAME}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${DOCKER_INFLUXDB_INIT_PASSWORD}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${DOCKER_INFLUXDB_INIT_ADMIN_TOKEN}
+      INFLUXDB_DB: influx
+
+  telegraf:
+    networks:
+      - locust-net
+    image: telegraf:latest
+    hostname: ${TELEGRAFCLIENT_HOST}
+    ports:
+      - 8092:8092
+    volumes:
+      - ./telegraf.conf:/etc/telegraf/telegraf.conf:ro
+    depends_on:
+      - influxdb
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: ${DOCKER_INFLUXDB_INIT_MODE}
+      DOCKER_INFLUXDB_INIT_ORG: ${DOCKER_INFLUXDB_INIT_ORG}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${DOCKER_INFLUXDB_INIT_BUCKET}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${DOCKER_INFLUXDB_INIT_ADMIN_TOKEN}
+      TELEGRAFCLIENT_HOST: ${TELEGRAFCLIENT_HOST}
+      TELEGRAFCLIENT_PORT: ${TELEGRAFCLIENT_PORT}
+      INFLUXDB_DB: influx
+
+
+  grafana:
+    networks:
+      - locust-net
+    image: grafana/grafana-enterprise
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - 4000:3000
+    depends_on:
+      - influxdb
+
 
 networks:
   locust-net:
