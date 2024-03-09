@@ -1170,6 +1170,7 @@ dependencies = [
  "rustls 0.22.2",
  "rustls-pemfile 2.0.0",
  "sqlx",
+ "telegraf",
  "thiserror",
  "time",
  "tokio",
@@ -2663,6 +2664,27 @@ name = "tagptr"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b2093cf4c8eb1e67749a6762251bc9cd836b6fc171623bd0a9d324d37af2417"
+
+[[package]]
+name = "telegraf"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d2007d39154fa1a72fb43fc6f0b9b79c1588c433eba286e059b0be91b3822c4"
+dependencies = [
+ "telegraf_derive",
+ "url",
+]
+
+[[package]]
+name = "telegraf_derive"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87d5d67fb11a9579d8772043e81e1f0432497ea65534e65b9f6a94e6edc9abc4"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
 
 [[package]]
 name = "tempfile"

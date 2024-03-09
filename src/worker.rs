@@ -1,20 +1,33 @@
-use std::sync::{mpsc, Arc};
-
 use http::StatusCode;
 use sqlx::PgPool;
+use std::sync::{mpsc, Arc};
 use tracing::warn;
 
-pub struct DBWorker {
+use crate::metrics::{MetricClient, ProxyMetric};
+
+pub struct DBWorker<T> {
     pool: Arc<PgPool>,
     channel: mpsc::Receiver<DBJob>,
+    metrics_clients: Option<T>,
 }
 
-impl DBWorker {
-    pub fn new(pool: Arc<PgPool>, channel: mpsc::Receiver<DBJob>) -> Self {
-        Self { pool, channel }
+impl<T> DBWorker<T>
+where
+    T: MetricClient,
+{
+    pub fn new(
+        pool: Arc<PgPool>,
+        channel: mpsc::Receiver<DBJob>,
+        metrics_clients: Option<T>,
+    ) -> Self {
+        Self {
+            pool,
+            channel,
+            metrics_clients,
+        }
     }
 
-    pub async fn start(&self) {
+    pub async fn start(&mut self) {
         while let Ok(job) = self.channel.recv() {
             self.process_job(job).await;
         }
@@ -22,7 +35,7 @@ impl DBWorker {
         warn!("Error receiving worker job. Exiting");
     }
 
-    async fn process_job(&self, job: DBJob) {
+    async fn process_job(&mut self, job: DBJob) {
         match job {
             DBJob::ProxyResponse {
                 proxy_id,
@@ -30,6 +43,19 @@ impl DBWorker {
                 response_time,
                 domain,
             } => {
+                let metric = ProxyMetric {
+                    proxy_id,
+                    domain: domain.unwrap_or("".to_string()),
+                    status: status.as_u16(),
+                    response_time,
+                };
+
+                if let Some(client) = &mut self.metrics_clients {
+                    if let Err(e) = client.send_proxy_metric(&metric) {
+                        warn!("error sending proxy metric: {e:?}");
+                    };
+                }
+
                 // Modify success coefficient in DB
                 // to keep track of proxy success across domains.
                 // Coeff will be used to calculate likelihood of
