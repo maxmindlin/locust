@@ -1,22 +1,33 @@
-use std::sync::{mpsc, Arc};
 use http::StatusCode;
 use sqlx::PgPool;
+use std::sync::{mpsc, Arc};
 use tracing::warn;
-use crate::metrics::{MetricsService, Metric};
 
-pub struct DBWorker {
+use crate::metrics::{MetricClient, ProxyMetric};
+
+pub struct DBWorker<T> {
     pool: Arc<PgPool>,
     channel: mpsc::Receiver<DBJob>,
-    metrics_service: MetricsService,
+    metrics_clients: Option<T>,
 }
 
-impl DBWorker {
-
-    pub fn new(pool: Arc<PgPool>, channel: mpsc::Receiver<DBJob>, metrics_service: MetricsService) -> Self {
-        Self { pool, channel, metrics_service }
+impl<T> DBWorker<T>
+where
+    T: MetricClient,
+{
+    pub fn new(
+        pool: Arc<PgPool>,
+        channel: mpsc::Receiver<DBJob>,
+        metrics_clients: Option<T>,
+    ) -> Self {
+        Self {
+            pool,
+            channel,
+            metrics_clients,
+        }
     }
 
-    pub async fn start(&self) {
+    pub async fn start(&mut self) {
         while let Ok(job) = self.channel.recv() {
             self.process_job(job).await;
         }
@@ -24,7 +35,7 @@ impl DBWorker {
         warn!("Error receiving worker job. Exiting");
     }
 
-    async fn process_job(&self, job: DBJob) {
+    async fn process_job(&mut self, job: DBJob) {
         match job {
             DBJob::ProxyResponse {
                 proxy_id,
@@ -32,23 +43,19 @@ impl DBWorker {
                 response_time,
                 domain,
             } => {
+                let metric = ProxyMetric {
+                    proxy_id,
+                    domain: domain.unwrap_or("".to_string()),
+                    status: status.as_u16(),
+                    response_time,
+                };
 
-                 if let Some(domain) = domain {
-                 let proxy_id = proxy_id.to_string();
-                    let metric = Metric {
-                        measurement: "proxy_response",
-                        tags: vec![
-                            ("domain", &domain),
-                            ("proxy_id", &proxy_id),
-                        ],
-                        fields: vec![
-                            ("response_time", response_time as f64),
-                            ("status", status.as_u16() as f64),
-                        ],
+                if let Some(client) = &mut self.metrics_clients {
+                    if let Err(e) = client.send_proxy_metric(&metric) {
+                        warn!("error sending proxy metric: {e:?}");
                     };
+                }
 
-                    if let Err(e) = self.metrics_service.send_metric(metric).await {
-                        eprintln!("Failed to send metric: {}", e);}}
                 // Modify success coefficient in DB
                 // to keep track of proxy success across domains.
                 // Coeff will be used to calculate likelihood of

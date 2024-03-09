@@ -1,10 +1,11 @@
 mod ca;
 mod error;
+mod metrics;
 mod rewind;
 mod service;
 mod worker;
-mod metrics;
-use crate::metrics::MetricsService;
+
+use crate::metrics::TelegrafClient;
 use crate::worker::DBWorker;
 use ca::RcgenAuthority;
 use futures::Future;
@@ -18,6 +19,7 @@ use rustls_pemfile as pemfile;
 use sqlx::PgPool;
 use std::{
     convert::Infallible,
+    env,
     net::SocketAddr,
     sync::{mpsc, Arc},
     thread, time,
@@ -93,10 +95,14 @@ async fn main() {
     let db_pool_arc = Arc::new(db_pool);
     let (tx, rx) = mpsc::channel();
 
-    let metrics_service = MetricsService::new();
+    // @TODO: config out metrics client options.
+    let telegraf_client = match env::var("TELEGRAF_ADDR") {
+        Ok(addr) => Some(TelegrafClient::new(addr.as_ref())),
+        Err(_) => None,
+    };
 
     // @TODO: could probably make a worker pool instead of a single worker.
-    let worker = DBWorker::new(Arc::clone(&db_pool_arc), rx,metrics_service);
+    let mut worker = DBWorker::new(Arc::clone(&db_pool_arc), rx, telegraf_client);
     thread::spawn(move || {
         let rt = Runtime::new().unwrap();
         rt.block_on(worker.start());
