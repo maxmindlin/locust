@@ -10,6 +10,7 @@ pub trait MetricClient {
 }
 
 #[derive(Metric)]
+#[measurement = "proxy_metrics"]
 pub struct ProxyMetric {
     #[telegraf(tag)]
     pub domain: String,
