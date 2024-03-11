@@ -97,7 +97,7 @@ services:
     depends_on:
       - influxdb
     volumes:
-      - ./.docker/provisioning:/etc/grafana/provisioning
+      - ./.docker/grafana/provisioning:/etc/grafana/provisioning
 
 
 networks:
