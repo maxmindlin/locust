@@ -13,7 +13,7 @@ services:
       - postgres-locust
       - influxdb
       - telegraf
-      # - flyway-locust
+      - flyway-locust
 
   postgres-locust:
     networks:
@@ -96,6 +96,8 @@ services:
       - 4000:3000
     depends_on:
       - influxdb
+    volumes:
+      - ./.docker/grafana/provisioning:/etc/grafana/provisioning
 
 
 networks:

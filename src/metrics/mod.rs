@@ -14,9 +14,9 @@ pub trait MetricClient {
 pub struct ProxyMetric {
     #[telegraf(tag)]
     pub domain: String,
-    #[telegraf(tag)]
     pub proxy_id: i32,
     pub response_time: u32,
+    #[telegraf(tag)]
     pub status: u16,
 }
 
