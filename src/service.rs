@@ -101,29 +101,28 @@ where
             let (upstream_proxy, session_id) = match maybe_session {
                 // If we dont already have a session, get a proxy
                 // from the db and create a new session with it.
-                None => {
-                    let proxy = self
-                        .get_upstream_proxy(host.clone())
-                        .await
-                        .expect("Error getting proxy for client");
-                    info!("CREATING SESSION");
-                    let session = create_proxy_session(&self.db, proxy.id)
-                        .await
-                        .expect("Error creation proxy session");
-                    (proxy, session.id)
-                }
+                None => self.get_proxy_and_create_session(host.clone()).await,
 
                 // If we already have a session going then look it up
                 // and look up the proxy associated with it.
                 Some(id) => {
                     info!("USING SESSION");
-                    let session = get_proxy_session(&self.db, id)
-                        .await
-                        .expect("Error getting proxy session");
-                    let proxy = get_proxy_by_id(&self.db, session.proxy_id)
-                        .await
-                        .expect("Error getting proxy from session");
-                    (proxy, session.id)
+                    match get_proxy_session(&self.db, id).await {
+                        Ok(sess) => {
+                            let proxy = get_proxy_by_id(&self.db, sess.proxy_id)
+                                .await
+                                .expect("error getting proxy from session");
+                            (proxy, sess.id)
+                        }
+                        Err(sqlx::Error::RowNotFound) => {
+                            warn!("session requested that does not exist");
+                            self.get_proxy_and_create_session(host.clone()).await
+                        }
+                        Err(e) => {
+                            error!("unknown error getting proxy session: {e:?}");
+                            self.get_proxy_and_create_session(host.clone()).await
+                        }
+                    }
                 }
             };
             // @TODO: perhaps cache clients to various proxies? TBD how much
@@ -186,6 +185,21 @@ where
             Some(host) => get_proxy_by_domain(&self.db, &host).await,
             None => get_general_proxy(&self.db).await,
         }
+    }
+
+    async fn get_proxy_and_create_session(
+        &self,
+        host: Option<String>,
+    ) -> (locust_core::models::proxies::Proxy, i32) {
+        let proxy = self
+            .get_upstream_proxy(host)
+            .await
+            .expect("Error getting proxy for client");
+        info!("CREATING SESSION");
+        let session = create_proxy_session(&self.db, proxy.id)
+            .await
+            .expect("Error creation proxy session");
+        (proxy, session.id)
     }
 
     fn process_connect(self, mut req: Request<Body>) -> Response<Body> {
