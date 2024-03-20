@@ -1149,7 +1149,7 @@ dependencies = [
 
 [[package]]
 name = "locust"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "async-trait",
  "bstr",
@@ -1184,7 +1184,7 @@ dependencies = [
 
 [[package]]
 name = "locust-cli"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "clap",
  "csv",
@@ -1200,7 +1200,7 @@ dependencies = [
 
 [[package]]
 name = "locust-core"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "sqlx",
  "urlencoding",
