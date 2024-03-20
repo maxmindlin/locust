@@ -43,17 +43,17 @@ where
                 response_time,
                 domain,
             } => {
-                let metric = ProxyMetric {
-                    proxy_id,
-                    domain: domain.unwrap_or("".to_string()),
-                    status: status.as_u16(),
-                    response_time,
-                };
-
                 if let Some(client) = &mut self.metrics_clients {
+                    let metric = ProxyMetric {
+                        proxy_id,
+                        domain: domain.unwrap_or("".to_string()),
+                        status: status.as_u16(),
+                        response_time,
+                    };
+
                     if let Err(e) = client.send_proxy_metric(&metric) {
                         warn!("error sending proxy metric: {e:?}");
-                    };
+                    }
                 }
 
                 // Modify success coefficient in DB
